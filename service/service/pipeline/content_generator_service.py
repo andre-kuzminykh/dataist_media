@@ -53,11 +53,11 @@ class ContentGeneratorService:
             response = await self._client.chat.completions.create(
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=0.7,
+                max_completion_tokens=max_tokens,
             )
             return response.choices[0].message.content or ""
         except Exception as exc:
+            logger.exception("LLM call failed: model=%s", self._model)
             raise GenerationError(
                 code="GEN_001",
                 message=f"LLM call failed: {exc}",
