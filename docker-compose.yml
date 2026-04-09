@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  service:
+    build:
+      context: ./service
+      dockerfile: Dockerfile
+    container_name: dataist-service
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./service/.env
+    volumes:
+      - dataist-published:/app/published
+    networks:
+      - dataist-net
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: dataist-bot
+    restart: unless-stopped
+    env_file:
+      - ./bot/.env
+    depends_on:
+      - service
+    networks:
+      - dataist-net
+
+volumes:
+  dataist-published:
+
+networks:
+  dataist-net:
+    driver: bridge
