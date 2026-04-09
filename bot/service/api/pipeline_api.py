@@ -93,3 +93,15 @@ class PipelineAPI:
             })
             resp.raise_for_status()
             return resp.json()
+
+    async def download_cover_image(self, cover_url: str) -> bytes | None:
+        """Download cover image bytes from the service's internal static URL."""
+        # Convert public URL to internal service URL
+        internal_url = cover_url.replace("http://localhost:8004", self.base_url)
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(internal_url)
+                resp.raise_for_status()
+                return resp.content
+        except Exception:
+            return None

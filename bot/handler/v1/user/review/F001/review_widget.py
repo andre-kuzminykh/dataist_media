@@ -21,6 +21,7 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
+    BufferedInputFile,
 )
 from aiogram.fsm.context import FSMContext
 
@@ -73,6 +74,24 @@ async def _clean(chat_id, state, bot):
         except Exception:
             pass
     await state.update_data(_m=[])
+
+
+async def _send_cover_photo(target: Message, cover_url: str, caption: str,
+                            state: FSMContext, reply_markup=None) -> Message | None:
+    """Download cover from service and send as Telegram photo."""
+    image_data = await _api.download_cover_image(cover_url)
+    if image_data:
+        photo = BufferedInputFile(image_data, filename="cover.png")
+        sent = await target.answer_photo(
+            photo, caption=caption, reply_markup=reply_markup, parse_mode="HTML"
+        )
+        data = await state.get_data()
+        tracked = data.get("_m", [])
+        tracked.append(sent.message_id)
+        await state.update_data(_m=tracked)
+        return sent
+    # Fallback: just send text
+    return await _send(target, caption, state, reply_markup=reply_markup)
 
 
 def _titles_kb(titles):
@@ -337,11 +356,10 @@ async def h_cgen(cb: CallbackQuery, state: FSMContext):
     await state.set_state(ReviewStates.reviewing_image)
 
     if cover_url:
-        text = f"🖼 <b>Обложка готова</b>\n\n{cover_url}\n\nНапишите правки или нажмите ✅ Утвердить"
+        caption = "🖼 <b>Обложка готова</b>\n\nНапишите правки или нажмите ✅ Утвердить"
+        await _send_cover_photo(cb.message, cover_url, caption, state, reply_markup=_image_review_kb())
     else:
-        text = "⚠️ Не удалось сгенерировать обложку. Нажмите ✅ чтобы продолжить без неё."
-
-    await _send(cb.message, text, state, reply_markup=_image_review_kb(), disable_web_page_preview=False)
+        await _send(cb.message, "⚠️ Не удалось сгенерировать. Нажмите ✅ чтобы продолжить.", state, reply_markup=_image_review_kb())
 
 
 # ── Image review: text = edit description + regenerate ────────────────
@@ -378,11 +396,10 @@ async def h_img_text(m: Message, state: FSMContext):
     await _clean(m.chat.id, state, m.bot)
 
     if cover_url:
-        text = f"🖼 <b>Обложка обновлена</b>\n\n{cover_url}\n\nНапишите правки или нажмите ✅ Утвердить"
+        caption = "🖼 <b>Обложка обновлена</b>\n\nНапишите правки или нажмите ✅ Утвердить"
+        await _send_cover_photo(m, cover_url, caption, state, reply_markup=_image_review_kb())
     else:
-        text = "⚠️ Не удалось сгенерировать. Нажмите ✅ чтобы продолжить."
-
-    await _send(m, text, state, reply_markup=_image_review_kb(), disable_web_page_preview=False)
+        await _send(m, "⚠️ Не удалось сгенерировать. Нажмите ✅ чтобы продолжить.", state, reply_markup=_image_review_kb())
 
 
 # ── Image review: approve → build ────────────────────────────────────
