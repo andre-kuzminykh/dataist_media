@@ -93,15 +93,8 @@ class HtmlBuilderService:
         if not slug:
             slug = self._generate_slug(title)
 
-        # Auto-split title at ":" or " — " into title_main + subtitle_part
         title_main = title
         subtitle_part = subtitle
-        for sep in [":", " — ", " - "]:
-            if sep in title:
-                parts = title.split(sep, 1)
-                title_main = parts[0].strip()
-                subtitle_part = parts[1].strip()
-                break
 
         filename = f"{slug}_{locale}.html"
         public_url = f"{public_base_url}/{slug}/{filename}"

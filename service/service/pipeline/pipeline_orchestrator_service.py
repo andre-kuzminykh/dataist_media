@@ -151,10 +151,11 @@ class PipelineOrchestratorService:
 
         # Generate subtitle
         try:
-            subtitle = await self.content_generator.generate_subtitle(
+            title_split = await self.content_generator.generate_subtitle(
                 editorial["title"], editorial.get("short_intro", ""), prompt_profile_id
             )
-            editorial["subtitle"] = subtitle
+            editorial["title"] = title_split["main"]
+            editorial["subtitle"] = title_split["sub"]
             steps.append({"name": "generate_subtitle", "status": "ok"})
         except GenerationError:
             editorial.setdefault("subtitle", "")

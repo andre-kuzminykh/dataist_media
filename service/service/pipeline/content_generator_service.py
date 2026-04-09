@@ -123,9 +123,11 @@ class ContentGeneratorService:
 
         # --- Title & subtitle -----------------------------------------------
         title = await self.generate_title(short_intro, prompt_profile_id)
-        subtitle = await self.generate_subtitle(
+        title_split = await self.generate_subtitle(
             title, short_intro, prompt_profile_id
         )
+        title = title_split["main"]
+        subtitle = title_split["sub"]
 
         # --- Links -----------------------------------------------------------
         links = await self.extract_links(
@@ -161,15 +163,27 @@ class ContentGeneratorService:
         title: str,
         short_intro: str,
         prompt_profile_id: str,
-    ) -> str:
-        """Generate a one-sentence Russian subtitle."""
+    ) -> dict:
+        """Split title into main + subtitle via LLM. Returns {"main": ..., "sub": ...}."""
         profile = self._config_loader.load_prompt_profile(prompt_profile_id)
         prompts = profile.get("prompts", {})
         subtitle_prompt = prompts.get("subtitle", "")
         subtitle_prompt = subtitle_prompt.format(
             title=title, short_intro=short_intro
         )
-        return (await self._call_llm(subtitle_prompt, max_tokens=256)).strip()
+        raw = (await self._call_llm(subtitle_prompt, max_tokens=256)).strip()
+
+        # Parse "main: ...\nsub: ..."
+        main_title = title
+        sub_title = ""
+        for line in raw.split("\n"):
+            line = line.strip()
+            if line.lower().startswith("main:"):
+                main_title = line[5:].strip()
+            elif line.lower().startswith("sub:"):
+                sub_title = line[4:].strip()
+
+        return {"main": main_title, "sub": sub_title}
 
     async def extract_links(
         self,
