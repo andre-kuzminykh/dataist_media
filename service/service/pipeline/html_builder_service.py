@@ -202,6 +202,9 @@ class HtmlBuilderService:
         def _process_block(text: str) -> str:
             """Convert a text block into HTML, handling figure markers and markdown bold."""
             lines_out = []
+            used_figures.clear()
+            in_figure = False
+
             for line in text.split("\n"):
                 line = line.strip()
                 if not line:
@@ -210,16 +213,23 @@ class HtmlBuilderService:
                 # [FIGURE:N] marker
                 fig_match = re.match(r"\[FIGURE:(\d+)\]", line)
                 if fig_match:
+                    # Close previous unclosed figure
+                    if in_figure:
+                        lines_out.append("</div></figure>")
+                        in_figure = False
+
                     idx = int(fig_match.group(1))
                     if 0 <= idx < len(figures):
                         fig = figures[idx]
                         url = fig.get("url", "")
                         if url:
+                            used_figures.add(idx)
                             lines_out.append(
                                 f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
                                 f'<div class="arxiv-chart flex flex-col items-center">'
                                 f'<img src="{url}" alt="" class="w-full object-contain rounded-lg bg-white/50">'
                             )
+                            in_figure = True
                     continue
 
                 # [CAPTION:text] marker
@@ -229,9 +239,16 @@ class HtmlBuilderService:
                     lines_out.append(
                         f'<p class="text-sm md:text-base text-[var(--text-muted)] mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
-                        f'</div></figure>'
                     )
+                    if in_figure:
+                        lines_out.append("</div></figure>")
+                        in_figure = False
                     continue
+
+                # Close unclosed figure before regular content
+                if in_figure:
+                    lines_out.append("</div></figure>")
+                    in_figure = False
 
                 # Convert markdown **bold** to <strong>
                 line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
@@ -240,7 +257,13 @@ class HtmlBuilderService:
                 # Regular paragraph
                 lines_out.append(f"<p>{line}</p>")
 
+            # Close any trailing unclosed figure
+            if in_figure:
+                lines_out.append("</div></figure>")
+
             return "\n".join(lines_out)
+
+        used_figures: set[int] = set()
 
         if "## " not in stripped:
             return _process_block(stripped)
@@ -258,6 +281,26 @@ class HtmlBuilderService:
             sections.append(
                 f"<section>\n<h2>{heading}</h2>\n{_process_block(body)}\n</section>"
             )
+
+        # Append any figures that LLM didn't place inline
+        remaining = []
+        for idx, fig in enumerate(figures):
+            if idx not in used_figures and fig.get("url"):
+                caption = fig.get("caption", "")
+                remaining.append(
+                    f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
+                    f'<div class="arxiv-chart flex flex-col items-center">'
+                    f'<img src="{fig["url"]}" alt="" class="w-full object-contain rounded-lg bg-white/50">'
+                )
+                if caption:
+                    remaining.append(
+                        f'<p class="text-sm md:text-base text-[var(--text-muted)] mt-5 '
+                        f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
+                    )
+                remaining.append("</div></figure>")
+
+        if remaining:
+            sections.append("\n".join(remaining))
 
         return "\n".join(sections)
 
