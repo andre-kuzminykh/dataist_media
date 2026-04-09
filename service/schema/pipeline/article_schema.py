@@ -163,6 +163,7 @@ class CoverGenerateRequestSchema(BaseModel):
     description: str
     slug: str
     style_profile_id: str = "cinematic_orange_violet_v1"
+    previous_cover_url: str = ""  # URL of previous cover to use as edit base
 
 
 class CoverGenerateResponseSchema(BaseModel):

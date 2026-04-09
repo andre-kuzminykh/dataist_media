@@ -93,16 +93,18 @@ class VisualGeneratorService:
         self,
         prompt: str,
         style_profile_id: str = "cinematic_orange_violet_v1",
+        previous_image: bytes | None = None,
     ) -> bytes | None:
         """Generate cover image using gpt-image-1 with reference image.
 
-        Uses images.edit endpoint to pass the reference image as a source,
-        so gpt-image-1 preserves the style (orange robot, violet tones).
-
-        Falls back to images.generate (no reference) if reference unavailable.
-        Returns None on any failure (BR009 fallback).
+        If previous_image is provided, uses it as the source (for edits).
+        Otherwise uses the reference from style profile.
+        Falls back to images.generate if no reference available.
         """
-        ref_image = await self._get_reference_image(style_profile_id)
+        if previous_image:
+            ref_image = previous_image
+        else:
+            ref_image = await self._get_reference_image(style_profile_id)
 
         try:
             if ref_image:

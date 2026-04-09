@@ -386,7 +386,8 @@ async def h_img_text(m: Message, state: FSMContext):
     try:
         from slugify import slugify
         slug = data.get("slug", slugify(data.get("chosen_title", "article"), max_length=80))
-        cover = await _api.generate_cover(new_desc, slug)
+        prev_cover = data.get("cover_url", "")
+        cover = await _api.generate_cover(new_desc, slug, previous_cover_url=prev_cover)
         cover_url = cover.get("public_url", "")
         await state.update_data(cover_url=cover_url)
     except Exception:

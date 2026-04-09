@@ -78,9 +78,12 @@ class PipelineAPI:
             resp.raise_for_status()
             return resp.json()["description"]
 
-    async def generate_cover(self, description: str, slug: str) -> dict:
+    async def generate_cover(self, description: str, slug: str, previous_cover_url: str = "") -> dict:
+        payload = {"description": description, "slug": slug}
+        if previous_cover_url:
+            payload["previous_cover_url"] = previous_cover_url
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-cover", json={"description": description, "slug": slug})
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-cover", json=payload)
             resp.raise_for_status()
             return resp.json()
 

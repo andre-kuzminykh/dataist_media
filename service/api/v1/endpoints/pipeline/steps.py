@@ -287,14 +287,31 @@ async def generate_cover(request: CoverGenerateRequestSchema) -> dict:
     logger.info("Step [generate-cover]: slug=%s", request.slug)
 
     try:
-        # Build full DALL-E prompt from short description + style
         full_prompt = await _visual_generator.generate_cover_prompt(
             article_summary=request.description,
             style_profile_id=request.style_profile_id,
             prompt_profile_id="default_ai_editorial_v1",
         )
+
+        # If editing previous cover, download it and pass as reference
+        previous_image = None
+        if request.previous_cover_url:
+            import httpx as _httpx
+            try:
+                async with _httpx.AsyncClient(timeout=15.0) as _client:
+                    _resp = await _client.get(request.previous_cover_url.replace(
+                        config.ASSET_PUBLIC_BASE_URL,
+                        f"http://localhost:{config.PORT}/static"
+                    ))
+                    if _resp.status_code == 200:
+                        previous_image = _resp.content
+            except Exception:
+                logger.warning("Could not download previous cover for editing")
+
         image_data = await _visual_generator.generate_cover_image(
-            full_prompt, style_profile_id=request.style_profile_id
+            full_prompt,
+            style_profile_id=request.style_profile_id,
+            previous_image=previous_image,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
