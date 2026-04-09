@@ -237,7 +237,7 @@ class HtmlBuilderService:
                 if cap_match:
                     caption = cap_match.group(1).strip()
                     lines_out.append(
-                        f'<p class="text-sm md:text-base text-[var(--text-muted)] mt-5 '
+                        f'<p class="text-sm md:text-base text-[var(--text-main)] mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
                     )
                     if in_figure:
@@ -294,7 +294,7 @@ class HtmlBuilderService:
                 )
                 if caption:
                     remaining.append(
-                        f'<p class="text-sm md:text-base text-[var(--text-muted)] mt-5 '
+                        f'<p class="text-sm md:text-base text-[var(--text-main)] mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
                     )
                 remaining.append("</div></figure>")
