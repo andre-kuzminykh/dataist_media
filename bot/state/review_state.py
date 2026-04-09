@@ -1,9 +1,10 @@
 """Review FSM states.
 ## Traceability
 Feature: F001, F002
-Scenarios: SC001-SC012
+Scenarios: SC001-SC014
 """
 from aiogram.fsm.state import State, StatesGroup
+
 
 class ReviewStates(StatesGroup):
     waiting_for_url = State()
@@ -13,4 +14,5 @@ class ReviewStates(StatesGroup):
     viewing_cover_description = State()
     typing_cover_edit = State()
     generating_image = State()
+    reviewing_image = State()
     building = State()
