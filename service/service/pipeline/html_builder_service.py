@@ -237,7 +237,7 @@ class HtmlBuilderService:
                 if cap_match:
                     caption = cap_match.group(1).strip()
                     lines_out.append(
-                        f'<p class="text-sm md:text-base text-black dark:text-white mt-5 '
+                        f'<p class="text-sm md:text-base text-gray-800 mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
                     )
                     if in_figure:
@@ -253,7 +253,34 @@ class HtmlBuilderService:
                 # Convert markdown **bold** to <strong>
                 line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
                 # Convert markdown *italic* to <em>
-                line = re.sub(r'\*(.+?)\*', r'<em>\1</em>', line)
+                line = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', line)
+
+                # List item (- item) → styled card
+                list_match = re.match(r'^[-•]\s+(.+)', line)
+                if list_match:
+                    item = list_match.group(1)
+                    # Metric pattern: "Name: 0.507 → 0.585" or "Name — value"
+                    metric_match = re.match(r'^(.+?):\s*(.+?)\s*→\s*(.+)$', item)
+                    if metric_match:
+                        name = metric_match.group(1).strip()
+                        old_val = metric_match.group(2).strip()
+                        new_val = metric_match.group(3).strip()
+                        lines_out.append(
+                            f'<div class="tech-card rounded-xl px-5 py-3 mb-2 flex justify-between items-center">'
+                            f'<span class="font-mono font-bold text-sm">{name}</span>'
+                            f'<span class="font-mono text-sm">'
+                            f'<span class="opacity-50">{old_val}</span>'
+                            f' → '
+                            f'<span class="text-cyber-orange font-bold">{new_val}</span>'
+                            f'</span></div>'
+                        )
+                    else:
+                        lines_out.append(
+                            f'<div class="tech-card rounded-xl px-5 py-3 mb-2">'
+                            f'<span class="text-sm">{item}</span></div>'
+                        )
+                    continue
+
                 # Regular paragraph
                 lines_out.append(f"<p>{line}</p>")
 
