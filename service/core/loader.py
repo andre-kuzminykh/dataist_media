@@ -36,7 +36,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 _static_dir = config.ASSET_STORAGE_PATH
 os.makedirs(_static_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+app.mount("/static", StaticFiles(directory=_static_dir, html=True), name="static")
 
 
 # ---------------------------------------------------------------------------

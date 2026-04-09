@@ -40,7 +40,7 @@ class ContentGeneratorService:
     async def _call_llm(
         self,
         prompt: str,
-        max_tokens: int = 4096,
+        max_tokens: int = 16384,
     ) -> str:
         """Send a chat-completion request and return the assistant text.
 
@@ -111,7 +111,7 @@ class ContentGeneratorService:
             article_text=parsed_article.get("article", ""),
             figures_info=figures_info or "(no figures)",
         )
-        article_body = await self._call_llm(editorial_prompt, max_tokens=4096)
+        article_body = await self._call_llm(editorial_prompt, max_tokens=16384)
 
         # --- Short intro (first meaningful paragraph) -----------------------
         short_intro = ""
@@ -219,7 +219,7 @@ class ContentGeneratorService:
         translation_prompt = translation_prompt.format(
             article_body=article_body
         )
-        return await self._call_llm(translation_prompt, max_tokens=4096)
+        return await self._call_llm(translation_prompt, max_tokens=16384)
 
     async def generate_teaser(
         self,
