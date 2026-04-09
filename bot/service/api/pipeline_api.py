@@ -96,13 +96,18 @@ class PipelineAPI:
 
     async def download_cover_image(self, cover_url: str) -> bytes | None:
         """Download cover image bytes from the service's internal static URL."""
-        # Convert any public URL to internal service URL
         import re
+        import logging
+        logger = logging.getLogger(__name__)
+
         internal_url = re.sub(r"https?://[^/]+", self.base_url, cover_url, count=1)
+        logger.info("Downloading cover: %s → %s", cover_url, internal_url)
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(internal_url)
                 resp.raise_for_status()
+                logger.info("Cover downloaded: %d bytes", len(resp.content))
                 return resp.content
-        except Exception:
+        except Exception as exc:
+            logger.exception("Cover download failed: %s", exc)
             return None
