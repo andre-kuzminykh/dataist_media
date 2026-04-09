@@ -237,7 +237,7 @@ class HtmlBuilderService:
                 if cap_match:
                     caption = cap_match.group(1).strip()
                     lines_out.append(
-                        f'<p class="text-sm md:text-base text-[var(--text-main)] mt-5 '
+                        f'<p class="text-sm md:text-base text-black dark:text-white mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
                     )
                     if in_figure:
@@ -283,21 +283,8 @@ class HtmlBuilderService:
             )
 
         # Append any figures that LLM didn't place inline
+        # Don't append unused figures — LLM chose which ones matter
         remaining = []
-        for idx, fig in enumerate(figures):
-            if idx not in used_figures and fig.get("url"):
-                caption = fig.get("caption", "")
-                remaining.append(
-                    f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
-                    f'<div class="arxiv-chart flex flex-col items-center">'
-                    f'<img src="{fig["url"]}" alt="" class="w-full object-contain rounded-lg bg-white/50">'
-                )
-                if caption:
-                    remaining.append(
-                        f'<p class="text-sm md:text-base text-[var(--text-main)] mt-5 '
-                        f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
-                    )
-                remaining.append("</div></figure>")
 
         if remaining:
             sections.append("\n".join(remaining))
