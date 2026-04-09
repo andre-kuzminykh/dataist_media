@@ -124,15 +124,13 @@ class VisualGeneratorService:
                 b64_data = response.data[0].b64_json
                 return base64.b64decode(b64_data)
             else:
-                # Fallback: generate without reference
-                logger.info("Generating cover without reference (dall-e-3 generate)")
-                response = await self._client.images.generate(
+                # Fallback: generate without reference using images.edit with no image
+                logger.info("Generating cover without reference (%s)", config.OPENAI_IMAGE_MODEL)
+                response = await self._client.images.edit(
                     model=config.OPENAI_IMAGE_MODEL,
                     prompt=prompt,
                     n=1,
-                    size="1792x1024",
-                    quality="hd",
-                    response_format="b64_json",
+                    size="1536x1024",
                 )
 
                 b64_data = response.data[0].b64_json
