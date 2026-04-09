@@ -143,7 +143,7 @@ def _fmt_final(title, teaser_raw, link_url):
             parts.append(clean)
             parts.append("")
     if link_url:
-        parts.append(f'📜 <a href="{link_url}">Полный обзор</a>')
+        parts.append(f"📜 Полный обзор:\n{link_url}")
     return "\n".join(parts)
 
 
