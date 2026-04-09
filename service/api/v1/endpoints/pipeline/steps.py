@@ -230,15 +230,12 @@ async def generate_editorial(request: EditorialRequestSchema) -> dict:
     description="Generate a text description for the cover image based on article summary and style.",
 )
 async def generate_cover_description(request: CoverDescriptionRequestSchema) -> dict:
-    """Generate a cover image prompt/description."""
-    logger.info(
-        "Step [generate-cover-description]: style=%s", request.style_profile_id
-    )
+    """Generate a short visual cover description (2-3 sentences)."""
+    logger.info("Step [generate-cover-description]")
 
     try:
-        description = await _visual_generator.generate_cover_prompt(
+        description = await _content_generator.generate_cover_description(
             article_summary=request.article_summary,
-            style_profile_id=request.style_profile_id,
             prompt_profile_id=request.prompt_profile_id,
         )
     except Exception as exc:
@@ -286,11 +283,17 @@ async def edit_cover_description(request: CoverEditRequestSchema) -> dict:
     description="Generate the cover image from a description and save it.",
 )
 async def generate_cover(request: CoverGenerateRequestSchema) -> dict:
-    """Generate cover image from description, save locally, return URLs."""
+    """Generate cover image from short description, save locally, return URLs."""
     logger.info("Step [generate-cover]: slug=%s", request.slug)
 
     try:
-        image_data = await _visual_generator.generate_cover_image(request.description)
+        # Build full DALL-E prompt from short description + style
+        full_prompt = await _visual_generator.generate_cover_prompt(
+            article_summary=request.description,
+            style_profile_id=request.style_profile_id,
+            prompt_profile_id="default_ai_editorial_v1",
+        )
+        image_data = await _visual_generator.generate_cover_image(full_prompt)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
