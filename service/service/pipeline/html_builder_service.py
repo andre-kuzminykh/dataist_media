@@ -237,7 +237,7 @@ class HtmlBuilderService:
                 if cap_match:
                     caption = cap_match.group(1).strip()
                     lines_out.append(
-                        f'<p class="text-sm md:text-base text-gray-800 mt-5 '
+                        f'<p class="text-sm md:text-base text-gray-800 dark:text-gray-300 mt-5 '
                         f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
                     )
                     if in_figure:
