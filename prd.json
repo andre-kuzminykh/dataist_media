@@ -1,0 +1,378 @@
+{
+  "product_name": "Dataist arXiv Pipeline",
+  "product_overview": "AI Agent for arXiv → Review Article → Cover → Branded HTML Page → Telegram. Автоматический агент, который по ссылке на arXiv создаёт готовую брендированную HTML-страницу статьи в стиле Dataist, а также RU/EN версии и Telegram-дистрибуцию.",
+  "features": [
+    {
+      "feature_id": "F001",
+      "general_info": {
+        "name": "arXiv Article Ingestion & Parsing",
+        "overview": "Приём arXiv URL, резолв HTML-версии, загрузка HTML и извлечение текста, абстракта, изображений и подписей."
+      },
+      "goal_and_context": {
+        "business_goal": "Автоматизировать извлечение структурированных данных из arXiv-статей для последующей обработки контентным конвейером.",
+        "user_problem": "Ручной парсинг arXiv-статей занимает много времени и подвержен ошибкам."
+      },
+      "actors_and_roles": {
+        "primary_user": "Контент-менеджер",
+        "secondary_user": null,
+        "system_service": "arXiv HTML Parser Service"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR001",
+          "description": "Система должна принимать ссылку на arXiv в формате /abs/ и автоматически преобразовывать её в HTML-версию /html/...v1."
+        },
+        {
+          "rule_id": "BR002",
+          "description": "Система должна загружать HTML статьи с arxiv.org и обрабатывать текстовый ответ как источник правды."
+        },
+        {
+          "rule_id": "BR003",
+          "description": "Система должна извлекать из HTML: abstract, полный текст статьи, изображения, подписи к изображениям, figureId и figureLabel, если доступны."
+        },
+        {
+          "rule_id": "BR004",
+          "description": "Система должна валидировать, что входная ссылка относится к arxiv.org."
+        },
+        {
+          "rule_id": "BR005",
+          "description": "При отсутствии изображений система должна продолжить сценарий без встроенных figure-картинок, используя только обложку и текст."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC001",
+          "user_story": "As a content manager, I want to send an arXiv abs URL and get a fully parsed article with text and figures.",
+          "bdd": {
+            "given": "Пользователь отправил валидную ссылку вида https://arxiv.org/abs/XXXX.XXXXX",
+            "and_preconditions": ["HTML-версия статьи доступна на arxiv.org"],
+            "when": "Агент запускает парсинг статьи",
+            "then": "Агент возвращает ParsedArticle с abstract, article text и figures[]",
+            "and_postconditions": ["Все URL изображений абсолютные под доменом https://arxiv.org"]
+          }
+        },
+        {
+          "scenario_id": "SC002",
+          "user_story": "As a content manager, I want to get a clear error when I send an invalid URL.",
+          "bdd": {
+            "given": "Пользователь отправил невалидную ссылку",
+            "and_preconditions": [],
+            "when": "Агент пытается валидировать URL",
+            "then": "Агент возвращает ValidationError с кодом и описанием",
+            "and_postconditions": ["Ошибка содержит code, message, stage"]
+          }
+        },
+        {
+          "scenario_id": "SC003",
+          "user_story": "As a content manager, I want the system to gracefully handle partial HTML.",
+          "bdd": {
+            "given": "HTML-страница не содержит тег <figure> или <article>",
+            "and_preconditions": ["HTML загружена успешно"],
+            "when": "Агент парсит HTML",
+            "then": "Агент возвращает частичный ParsedArticle без ошибки",
+            "and_postconditions": ["Пустые figures[] не блокируют дальнейшую обработку"]
+          }
+        },
+        {
+          "scenario_id": "SC004",
+          "user_story": "As a content manager, I want all figure images to have absolute URLs.",
+          "bdd": {
+            "given": "HTML содержит <figure> элементы с относительными URL изображений",
+            "and_preconditions": [],
+            "when": "Агент извлекает figures",
+            "then": "Все URL изображений резолвятся в абсолютные URL под доменом https://arxiv.org",
+            "and_postconditions": []
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {"nfr_id": "NFR001", "type": "resilience", "description": "Обработка должна быть устойчивой к отсутствию <article>, <figure> или figcaption в HTML."},
+        {"nfr_id": "NFR002", "type": "data_integrity", "description": "Все URL изображений должны резолвиться в абсолютные URL под доменом https://arxiv.org."},
+        {"nfr_id": "NFR003", "type": "error_handling", "description": "Ошибки парсинга должны возвращаться в структурированном виде, без падения всего сценария."},
+        {"nfr_id": "NFR004", "type": "error_handling", "description": "Ошибки должны быть объяснимыми: invalid URL, HTML unavailable, no article text."},
+        {"nfr_id": "NFR005", "type": "resilience", "description": "Частичная обработка должна быть допустимой: отсутствие figure-картинок не должно блокировать выпуск статьи."}
+      ],
+      "test_cases": [
+        {
+          "test_id": "T001",
+          "scenario_id": "SC001",
+          "setup": "Подготовить валидный arXiv abs URL",
+          "action": "Вызвать URLResolverService.resolve(url)",
+          "assertion": "Результат содержит source_url, html_url и valid=True",
+          "examples": [
+            {"input": {"url": "https://arxiv.org/abs/2301.12345"}, "expected": {"html_url": "https://arxiv.org/html/2301.12345v1", "valid": true}},
+            {"input": {"url": "https://arxiv.org/abs/2301.12345v2"}, "expected": {"html_url": "https://arxiv.org/html/2301.12345v2", "valid": true}},
+            {"input": {"url": "https://arxiv.org/html/2301.12345v1"}, "expected": {"html_url": "https://arxiv.org/html/2301.12345v1", "valid": true}}
+          ]
+        },
+        {
+          "test_id": "T002",
+          "scenario_id": "SC002",
+          "setup": "Подготовить невалидные URL",
+          "action": "Вызвать URLResolverService.validate_url(url)",
+          "assertion": "Возвращает False или raise ValidationError",
+          "examples": [
+            {"input": {"url": "https://google.com"}, "expected": {"valid": false}},
+            {"input": {"url": ""}, "expected": {"valid": false}},
+            {"input": {"url": "not-a-url"}, "expected": {"valid": false}},
+            {"input": {"url": "https://arxiv.org/pdf/2301.12345"}, "expected": {"valid": false}}
+          ]
+        },
+        {
+          "test_id": "T003",
+          "scenario_id": "SC003",
+          "setup": "Подготовить HTML без <figure> элементов",
+          "action": "Вызвать ArxivParserService.parse_article(html, source_base)",
+          "assertion": "Возвращает ParsedArticle с пустым figures[] без исключения",
+          "examples": [
+            {"input": {"html": "<html><body><article>Text</article></body></html>"}, "expected": {"figures_count": 0, "article_not_empty": true}}
+          ]
+        },
+        {
+          "test_id": "T004",
+          "scenario_id": "SC004",
+          "setup": "Подготовить HTML с <figure> и относительным src",
+          "action": "Вызвать ArxivParserService._extract_figures(soup, source_base)",
+          "assertion": "URL изображений начинаются с https://arxiv.org",
+          "examples": [
+            {"input": {"src": "extracted/fig1.png", "source_base": "/html/2301.12345v1"}, "expected": {"url_starts_with": "https://arxiv.org"}}
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F002",
+      "general_info": {
+        "name": "Editorial Content & HTML Generation",
+        "overview": "Генерация редакционного обзора, обложки, HTML-страниц RU/EN и Telegram-сообщений."
+      },
+      "goal_and_context": {
+        "business_goal": "Автоматизировать создание полного контент-пакета из научной статьи для публикации.",
+        "user_problem": "Ручное создание обзора, обложки, HTML-страницы и Telegram-поста занимает часы работы."
+      },
+      "actors_and_roles": {
+        "primary_user": "Редактор AI-медиа",
+        "secondary_user": "Контент-менеджер",
+        "system_service": "Content Generation Pipeline"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR006",
+          "description": "Система должна генерировать обзорную статью на русском языке в живом редакционном стиле."
+        },
+        {
+          "rule_id": "BR007",
+          "description": "Система должна автоматически извлекать и вставлять ссылки на arXiv, GitHub и HuggingFace."
+        },
+        {
+          "rule_id": "BR008",
+          "description": "Система должна создавать RU и EN HTML-страницы по брендированному шаблону и готовить итоговые Telegram-сообщения."
+        },
+        {
+          "rule_id": "BR009",
+          "description": "Если не удалась генерация обложки, система должна подставить fallback cover или убрать hero image без поломки шаблона."
+        },
+        {
+          "rule_id": "BR010",
+          "description": "Если не удалась EN-версия, система должна всё равно доставить RU HTML и ссылку на него."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC005",
+          "user_story": "As an editor, I want the full pipeline to produce RU/EN HTML pages and Telegram messages from a parsed article.",
+          "bdd": {
+            "given": "Текст статьи и изображения успешно извлечены",
+            "and_preconditions": ["OpenAI API доступен", "Шаблон HTML доступен"],
+            "when": "Агент запускает генерацию контента и сборку HTML",
+            "then": "Агент создаёт RU HTML, EN HTML, обложку и Telegram-сообщения",
+            "and_postconditions": ["HTML страницы опубликованы", "Telegram-сообщения готовы к отправке"]
+          }
+        },
+        {
+          "scenario_id": "SC006",
+          "user_story": "As an editor, I want the pipeline to continue even if cover generation fails.",
+          "bdd": {
+            "given": "Генерация обложки завершилась ошибкой",
+            "and_preconditions": [],
+            "when": "Агент пытается собрать HTML-страницу",
+            "then": "HTML собирается без обложки, с пустым cover_image_url",
+            "and_postconditions": ["Статус completed_with_warnings"]
+          }
+        },
+        {
+          "scenario_id": "SC007",
+          "user_story": "As an editor, I want RU page delivered even if EN translation fails.",
+          "bdd": {
+            "given": "Перевод на EN завершился ошибкой",
+            "and_preconditions": ["RU HTML уже собран"],
+            "when": "Агент пытается создать EN-версию",
+            "then": "RU HTML доставляется, EN пропускается с warning",
+            "and_postconditions": []
+          }
+        },
+        {
+          "scenario_id": "SC008",
+          "user_story": "As an editor, I want HTML pages built correctly with OG meta and all blocks.",
+          "bdd": {
+            "given": "Editorial article и cover asset готовы",
+            "and_preconditions": [],
+            "when": "HtmlBuilderService собирает HTML",
+            "then": "HTML содержит title, subtitle, cover, article body, CTA buttons, OG meta",
+            "and_postconditions": ["HTML валидный и responsive"]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {"nfr_id": "NFR006", "type": "quality", "description": "Генерируемый текст должен быть читабельным, с уважительным тоном и без структурных поломок."},
+        {"nfr_id": "NFR007", "type": "quality", "description": "HTML должен быть валидным, адаптивным и корректно рендериться в мобильных и desktop-браузерах."},
+        {"nfr_id": "NFR008", "type": "reliability", "description": "Система должна обеспечивать идемпотентность публикации HTML-файлов и asset URLs."},
+        {"nfr_id": "NFR009", "type": "observability", "description": "Для каждого запуска должен формироваться trace/log со статусами шагов сборки и публикации."},
+        {"nfr_id": "NFR012", "type": "responsiveness", "description": "HTML должен быть mobile-first и корректно отображаться на ширинах от 320px."},
+        {"nfr_id": "NFR013", "type": "deployment", "description": "HTML должен быть пригоден для размещения в статическом хостинге без серверного рендера."},
+        {"nfr_id": "NFR014", "type": "social_preview", "description": "OG preview должен корректно отображаться в Telegram и соцсетях."},
+        {"nfr_id": "NFR015", "type": "security", "description": "Все внешние изображения должны быть доступны по публичным HTTPS URL."},
+        {"nfr_id": "NFR016", "type": "independence", "description": "HTML не должен зависеть от Telegraph API."},
+        {"nfr_id": "NFR017", "type": "standalone", "description": "Все интерактивные элементы страницы должны работать без backend runtime после публикации."}
+      ],
+      "test_cases": [
+        {
+          "test_id": "T005",
+          "scenario_id": "SC005",
+          "setup": "Подготовить editorial article dict и cover URL",
+          "action": "Вызвать HtmlBuilderService.build_html_page()",
+          "assertion": "Результат содержит html, slug, filename, locale",
+          "examples": [
+            {"input": {"title": "Test Article", "locale": "ru"}, "expected": {"filename_ends_with": "_ru.html"}}
+          ]
+        },
+        {
+          "test_id": "T006",
+          "scenario_id": "SC006",
+          "setup": "Mock OpenAI image generation to return None",
+          "action": "Вызвать VisualGeneratorService.generate_cover_image(prompt)",
+          "assertion": "Возвращает None без исключения",
+          "examples": [
+            {"input": {"prompt": "test prompt"}, "expected": {"result": null}}
+          ]
+        },
+        {
+          "test_id": "T007",
+          "scenario_id": "SC008",
+          "setup": "Подготовить markdown текст с ## заголовками",
+          "action": "Вызвать HtmlBuilderService._build_article_html_from_sections(text)",
+          "assertion": "Результат содержит <h2> и <section> теги",
+          "examples": [
+            {"input": {"text": "## Heading\n\nParagraph"}, "expected": {"contains": ["<h2>Heading</h2>", "<section>", "<p>Paragraph</p>"]}},
+            {"input": {"text": "<div>Already HTML</div>"}, "expected": {"equals": "<div>Already HTML</div>"}},
+            {"input": {"text": ""}, "expected": {"equals": ""}}
+          ]
+        },
+        {
+          "test_id": "T008",
+          "scenario_id": "SC005",
+          "setup": "Подготовить title, ru_url, en_url, teasers",
+          "action": "Вызвать TelegramDeliveryService._format_telegram_message()",
+          "assertion": "Возвращает tuple (ru_text, en_text) с HTML-форматированием",
+          "examples": [
+            {"input": {"title": "Test", "ru_url": "http://test/ru", "en_url": "http://test/en"}, "expected": {"ru_contains": "Читать статью", "en_contains": "Read the article"}}
+          ]
+        }
+      ]
+    },
+    {
+      "feature_id": "F003",
+      "general_info": {
+        "name": "Configuration Management",
+        "overview": "Управление промтами, style profiles и HTML-шаблонами отдельно от бизнес-логики."
+      },
+      "goal_and_context": {
+        "business_goal": "Обеспечить возможность менять тон, формат, арт-направление и layout без переписывания пайплайна.",
+        "user_problem": "Промты и стили зашиты в код, что затрудняет итерации по контенту."
+      },
+      "actors_and_roles": {
+        "primary_user": "Владелец системы / оператор контентного конвейера",
+        "secondary_user": null,
+        "system_service": "Config Loader"
+      },
+      "business_rules": [
+        {
+          "rule_id": "BR011",
+          "description": "Все промты для LLM и image generation должны храниться отдельно от orchestration-логики."
+        },
+        {
+          "rule_id": "BR012",
+          "description": "Система должна поддерживать референсное изображение для генерации обложки в том же стиле, что и эталон."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "scenario_id": "SC009",
+          "user_story": "As a system owner, I want to load and change prompt profiles without editing code.",
+          "bdd": {
+            "given": "В config/prompts/ лежит JSON файл с промт-профилем",
+            "and_preconditions": [],
+            "when": "ConfigLoader загружает профиль по ID",
+            "then": "Возвращается dict с prompts и glossary",
+            "and_postconditions": ["Промты доступны через get_prompt()"]
+          }
+        },
+        {
+          "scenario_id": "SC010",
+          "user_story": "As a system owner, I want to load style profiles and HTML templates separately.",
+          "bdd": {
+            "given": "В config/styles/ лежит JSON с style profile, в config/templates/ лежит HTML-шаблон",
+            "and_preconditions": [],
+            "when": "ConfigLoader загружает style и template по ID",
+            "then": "Возвращаются соответствующие данные",
+            "and_postconditions": ["Кеширование работает"]
+          }
+        }
+      ],
+      "non_functional_requirements": [
+        {"nfr_id": "NFR010", "type": "maintainability", "description": "Изменение промтов, визуального стиля и HTML-шаблона не должно требовать изменения JS-кода в узлах обработки."},
+        {"nfr_id": "NFR011", "type": "maintainability", "description": "Конфигурация промтов и шаблонов должна поддерживать versioning и быстрый rollback."}
+      ],
+      "test_cases": [
+        {
+          "test_id": "T009",
+          "scenario_id": "SC009",
+          "setup": "Создать временный JSON файл промт-профиля",
+          "action": "Вызвать ConfigLoader.load_prompt_profile(profile_id)",
+          "assertion": "Возвращает dict с ключами id, version, prompts, glossary",
+          "examples": [
+            {"input": {"profile_id": "default_ai_editorial_v1"}, "expected": {"has_keys": ["id", "version", "prompts", "glossary"]}}
+          ]
+        },
+        {
+          "test_id": "T010",
+          "scenario_id": "SC009",
+          "setup": "Загрузить профиль и вызвать get_prompt с шаблонными переменными",
+          "action": "ConfigLoader.get_prompt(profile_id, 'title', short_intro='Test intro')",
+          "assertion": "Возвращает строку с подставленным значением",
+          "examples": [
+            {"input": {"prompt_name": "title", "kwargs": {"short_intro": "Test"}}, "expected": {"contains": "Test"}}
+          ]
+        },
+        {
+          "test_id": "T011",
+          "scenario_id": "SC010",
+          "setup": "Создать временный JSON файл style-профиля",
+          "action": "Вызвать ConfigLoader.load_style_profile(style_id)",
+          "assertion": "Возвращает dict с ключами id, palette, mood",
+          "examples": [
+            {"input": {"style_id": "cinematic_orange_violet_v1"}, "expected": {"has_keys": ["id", "palette", "mood"]}}
+          ]
+        },
+        {
+          "test_id": "T012",
+          "scenario_id": "SC010",
+          "setup": "Загрузить style profile дважды",
+          "action": "Вызвать load_style_profile() два раза",
+          "assertion": "Второй вызов возвращает кешированный результат (тот же объект)",
+          "examples": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+aiogram>=3.4.0
+httpx
+pydantic
+pydantic-settings
+python-dotenv
+pytest
+pytest-asyncio

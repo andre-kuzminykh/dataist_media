@@ -1,0 +1,12 @@
+{
+  "id": "cinematic_orange_violet_v1",
+  "version": "1.0.0",
+  "palette": ["#FF6B35", "#9B59B6", "#1a1a2e", "#16213e", "#0f3460"],
+  "palette_names": ["orange", "violet", "dark navy", "deep blue", "midnight blue"],
+  "mood": "cinematic futuristic minimalist with dramatic lighting",
+  "composition": "centered, clean, abstract technological visualization",
+  "negative_prompt": "text, letters, words, watermarks, human faces, realistic humans, noise, artifacts, blurry",
+  "reference_image_required": false,
+  "aspect_ratio": "16:9",
+  "quality": "hd"
+}

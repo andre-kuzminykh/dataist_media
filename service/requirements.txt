@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+httpx
+beautifulsoup4
+lxml
+openai
+python-telegram-bot
+jinja2
+python-slugify
+python-dotenv
+pytest
+pytest-asyncio
+pytest-httpx
+respx
