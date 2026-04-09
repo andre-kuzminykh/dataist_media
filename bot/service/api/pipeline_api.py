@@ -41,3 +41,55 @@ class PipelineAPI:
             )
             response.raise_for_status()
             return response.json()
+
+    async def parse_article(self, source_url: str) -> dict:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/parse", json={"source_url": source_url})
+            resp.raise_for_status()
+            return resp.json()
+
+    async def generate_titles(self, short_intro: str, abstract: str) -> list[str]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-titles", json={"short_intro": short_intro, "abstract": abstract})
+            resp.raise_for_status()
+            return resp.json()["titles"]
+
+    async def regenerate_titles(self, custom_title: str, short_intro: str, abstract: str) -> list[str]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/regenerate-titles", json={"custom_title": custom_title, "short_intro": short_intro, "abstract": abstract})
+            resp.raise_for_status()
+            return resp.json()["titles"]
+
+    async def generate_editorial(self, parsed_article: dict, chosen_title: str) -> dict:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-editorial", json={"parsed_article": parsed_article, "chosen_title": chosen_title})
+            resp.raise_for_status()
+            return resp.json()
+
+    async def generate_cover_description(self, article_summary: str) -> str:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-cover-description", json={"article_summary": article_summary})
+            resp.raise_for_status()
+            return resp.json()["description"]
+
+    async def edit_cover_description(self, current_description: str, user_feedback: str) -> str:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/edit-cover-description", json={"current_description": current_description, "user_feedback": user_feedback})
+            resp.raise_for_status()
+            return resp.json()["description"]
+
+    async def generate_cover(self, description: str, slug: str) -> dict:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-cover", json={"description": description, "slug": slug})
+            resp.raise_for_status()
+            return resp.json()
+
+    async def build_and_publish(self, title: str, subtitle: str, article_body: str, short_intro: str, cover_image_url: str, links: dict, figures: list, source_url: str) -> dict:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{self.base_url}/api/v1/pipeline/build-and-publish", json={
+                "title": title, "subtitle": subtitle, "article_body": article_body,
+                "short_intro": short_intro, "cover_image_url": cover_image_url,
+                "links": links, "figures": figures, "source_url": source_url
+            })
+            resp.raise_for_status()
+            return resp.json()

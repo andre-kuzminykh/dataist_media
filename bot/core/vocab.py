@@ -87,3 +87,36 @@ MSG_SEND_URL_EN = "Send an arXiv article link:"
 BTN_READ_RU = "\U0001f1f7\U0001f1fa Читать (RU)"
 BTN_READ_EN = "\U0001f1ec\U0001f1e7 Read (EN)"
 BTN_CHANNEL = "\U0001f4e2 Канал / Channel"
+
+# ── Interactive flow messages ──────────────────────────────────────
+MSG_PARSING = "⏳ Парсю статью..."
+MSG_PARSING_EN = "⏳ Parsing article..."
+
+MSG_CHOOSE_TITLE = "📋 <b>Выберите заголовок</b> (нажмите кнопку) или напишите свой:"
+MSG_CHOOSE_TITLE_EN = "📋 <b>Choose a title</b> (press a button) or write your own:"
+
+MSG_TITLE_SELECTED = '✅ Заголовок выбран: <b>"{title}"</b>'
+MSG_TITLE_SELECTED_EN = '✅ Title selected: <b>"{title}"</b>'
+
+MSG_COVER_DESCRIPTION = "🎨 <b>Описание обложки:</b>\n\n<i>{description}</i>"
+MSG_COVER_DESCRIPTION_EN = "🎨 <b>Cover description:</b>\n\n<i>{description}</i>"
+
+MSG_SEND_COVER_EDIT = "✏️ Напишите, что изменить в описании обложки:"
+MSG_SEND_COVER_EDIT_EN = "✏️ Describe what to change in the cover description:"
+
+MSG_GENERATING_IMAGE = "🖼 Генерирую обложку..."
+MSG_GENERATING_IMAGE_EN = "🖼 Generating cover image..."
+
+MSG_BUILDING = "📝 Собираю статью и публикую..."
+MSG_BUILDING_EN = "📝 Building article and publishing..."
+
+MSG_SEND_CUSTOM_TITLE = "✏️ Напишите свой вариант заголовка:"
+MSG_SEND_CUSTOM_TITLE_EN = "✏️ Write your own title variant:"
+
+MSG_REGENERATING_TITLES = "🔄 Генерирую новые заголовки на основе вашего варианта..."
+MSG_REGENERATING_TITLES_EN = "🔄 Generating new titles based on your input..."
+
+# ── Button labels for interactive flow ─────────────────────────────
+BTN_CUSTOM_TITLE = "✏️ Свой заголовок"
+BTN_EDIT_COVER = "✏️ Редактировать"
+BTN_GENERATE_COVER = "🖼 Сгенерировать"

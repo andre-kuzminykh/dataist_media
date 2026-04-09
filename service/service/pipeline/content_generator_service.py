@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from openai import AsyncOpenAI
 
@@ -237,3 +238,73 @@ class ContentGeneratorService:
             language=language,
         )
         return (await self._call_llm(teaser_prompt, max_tokens=512)).strip()
+
+    # ------------------------------------------------------------------
+    # Step-by-step pipeline helpers
+    # ------------------------------------------------------------------
+
+    async def generate_titles(
+        self,
+        short_intro: str,
+        abstract: str,
+        prompt_profile_id: str,
+        count: int = 10,
+    ) -> list[str]:
+        """Generate multiple title options. Returns list of title strings."""
+        profile = self._config_loader.load_prompt_profile(prompt_profile_id)
+        prompts = profile.get("prompts", {})
+        prompt = prompts.get("titles_generation", "")
+        prompt = prompt.format(short_intro=short_intro, abstract=abstract)
+        raw = await self._call_llm(prompt, max_tokens=1024)
+        # Parse numbered lines: "1. Title\n2. Title\n..."
+        titles = []
+        for line in raw.strip().split("\n"):
+            line = line.strip()
+            if line and line[0].isdigit():
+                cleaned = re.sub(r'^\d+[\.\)\-]\s*', '', line).strip()
+                if cleaned:
+                    titles.append(cleaned)
+        return titles[:count]
+
+    async def regenerate_titles(
+        self,
+        custom_title: str,
+        short_intro: str,
+        abstract: str,
+        prompt_profile_id: str,
+        count: int = 10,
+    ) -> list[str]:
+        """Generate new titles inspired by user's custom title."""
+        profile = self._config_loader.load_prompt_profile(prompt_profile_id)
+        prompts = profile.get("prompts", {})
+        prompt = prompts.get("titles_regeneration", "")
+        prompt = prompt.format(
+            custom_title=custom_title,
+            short_intro=short_intro,
+            abstract=abstract,
+        )
+        raw = await self._call_llm(prompt, max_tokens=1024)
+        titles = []
+        for line in raw.strip().split("\n"):
+            line = line.strip()
+            if line and line[0].isdigit():
+                cleaned = re.sub(r'^\d+[\.\)\-]\s*', '', line).strip()
+                if cleaned:
+                    titles.append(cleaned)
+        return titles[:count]
+
+    async def edit_cover_description(
+        self,
+        current_description: str,
+        user_feedback: str,
+        prompt_profile_id: str,
+    ) -> str:
+        """Edit cover description based on user feedback using LLM."""
+        profile = self._config_loader.load_prompt_profile(prompt_profile_id)
+        prompts = profile.get("prompts", {})
+        prompt = prompts.get("cover_description_edit", "")
+        prompt = prompt.format(
+            current_description=current_description,
+            user_feedback=user_feedback,
+        )
+        return (await self._call_llm(prompt, max_tokens=1024)).strip()

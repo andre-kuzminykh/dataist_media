@@ -62,6 +62,7 @@ class VisualGeneratorService:
         style = self._loader.load_style_profile(style_profile_id)
         palette = ", ".join(style.get("palette_names", []))
         mood = style.get("mood", "")
+        reference_description = style.get("reference_image_description", "")
 
         prompt = self._loader.get_prompt(
             prompt_profile_id,
@@ -70,6 +71,10 @@ class VisualGeneratorService:
             palette=palette,
             mood=mood,
         )
+
+        if reference_description:
+            prompt += f"\n\nStyle reference: The image should match the style of this reference — {reference_description}"
+
         return prompt
 
     # ------------------------------------------------------------------

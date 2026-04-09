@@ -175,6 +175,22 @@
         {
           "rule_id": "BR010",
           "description": "Если не удалась EN-версия, система должна всё равно доставить RU HTML и ссылку на него."
+        },
+        {
+          "rule_id": "BR013",
+          "description": "Система должна генерировать 10 вариантов заголовков и позволять пользователю выбрать или ввести свой."
+        },
+        {
+          "rule_id": "BR014",
+          "description": "При вводе пользовательского заголовка система должна генерировать 10 новых вариантов, вдохновлённых его предложением."
+        },
+        {
+          "rule_id": "BR015",
+          "description": "Система должна показывать описание обложки перед генерацией изображения и позволять редактировать через LLM."
+        },
+        {
+          "rule_id": "BR016",
+          "description": "При генерации обложки система должна использовать референсное изображение как стилистический ориентир."
         }
       ],
       "acceptance_criteria": [
@@ -235,6 +251,30 @@
         {"nfr_id": "NFR016", "type": "independence", "description": "HTML не должен зависеть от Telegraph API."},
         {"nfr_id": "NFR017", "type": "standalone", "description": "Все интерактивные элементы страницы должны работать без backend runtime после публикации."}
       ],
+      "acceptance_criteria_interactive": [
+        {
+          "scenario_id": "SC011",
+          "user_story": "As a content manager, I want to choose from 10 generated title options or write my own.",
+          "bdd": {
+            "given": "Статья успешно распарсена",
+            "and_preconditions": ["LLM API доступен"],
+            "when": "Система генерирует 10 заголовков",
+            "then": "Пользователь видит 10 пронумерованных вариантов с кнопками выбора и кнопкой 'Свой заголовок'",
+            "and_postconditions": ["При вводе своего заголовка генерируются новые 10 вариантов"]
+          }
+        },
+        {
+          "scenario_id": "SC012",
+          "user_story": "As a content manager, I want to preview and edit cover description before generating the image.",
+          "bdd": {
+            "given": "Заголовок выбран",
+            "and_preconditions": [],
+            "when": "Система показывает описание обложки",
+            "then": "Пользователь видит описание с кнопками 'Редактировать' и 'Сгенерировать'",
+            "and_postconditions": ["При редактировании LLM обновляет описание", "При генерации создаётся изображение по референсу"]
+          }
+        }
+      ],
       "test_cases": [
         {
           "test_id": "T005",
@@ -276,6 +316,46 @@
           "assertion": "Возвращает tuple (ru_text, en_text) с HTML-форматированием",
           "examples": [
             {"input": {"title": "Test", "ru_url": "http://test/ru", "en_url": "http://test/en"}, "expected": {"ru_contains": "Читать статью", "en_contains": "Read the article"}}
+          ]
+        },
+        {
+          "test_id": "T013",
+          "scenario_id": "SC011",
+          "setup": "Подготовить short_intro и abstract",
+          "action": "Вызвать ContentGeneratorService.generate_titles(short_intro, abstract, profile_id)",
+          "assertion": "Возвращает список из 10 строк-заголовков",
+          "examples": [
+            {"input": {"short_intro": "New approach to LLM training", "abstract": "We present..."}, "expected": {"list_length": 10}}
+          ]
+        },
+        {
+          "test_id": "T014",
+          "scenario_id": "SC011",
+          "setup": "Подготовить custom_title, short_intro и abstract",
+          "action": "Вызвать ContentGeneratorService.regenerate_titles(custom_title, short_intro, abstract, profile_id)",
+          "assertion": "Возвращает список из 10 новых строк-заголовков",
+          "examples": [
+            {"input": {"custom_title": "Революция в обучении моделей"}, "expected": {"list_length": 10}}
+          ]
+        },
+        {
+          "test_id": "T015",
+          "scenario_id": "SC012",
+          "setup": "Подготовить current_description и user_feedback",
+          "action": "Вызвать ContentGeneratorService.edit_cover_description(current, feedback, profile_id)",
+          "assertion": "Возвращает обновлённое описание строкой",
+          "examples": [
+            {"input": {"current_description": "A robot in orange tones", "user_feedback": "More abstract, add purple"}, "expected": {"type": "string", "not_empty": true}}
+          ]
+        },
+        {
+          "test_id": "T016",
+          "scenario_id": "SC011",
+          "setup": "Mock LLM returning numbered list",
+          "action": "Парсинг ответа LLM с нумерованными заголовками",
+          "assertion": "Парсер корректно извлекает заголовки из формата '1. Title\\n2. Title'",
+          "examples": [
+            {"input": {"llm_response": "1. Первый заголовок\n2. Второй заголовок\n3. Третий"}, "expected": {"parsed_count": 3}}
           ]
         }
       ]

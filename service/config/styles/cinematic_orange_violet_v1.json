@@ -6,7 +6,9 @@
   "mood": "cinematic futuristic minimalist with dramatic lighting",
   "composition": "centered, clean, abstract technological visualization",
   "negative_prompt": "text, letters, words, watermarks, human faces, realistic humans, noise, artifacts, blurry",
-  "reference_image_required": false,
+  "reference_image_url": "https://raw.githubusercontent.com/andre-kuzminykh/dataist/refs/heads/main/2026-04-03/_ChatGPT%20Image%20Apr%203%2C%202026%2C%2011_25_03%20PM.jpg",
+  "reference_image_description": "Orange minimalist robot figure on dark background with purple-orange gradient tones, cinematic lighting, abstract and clean composition",
+  "reference_image_required": true,
   "aspect_ratio": "16:9",
   "quality": "hd"
 }

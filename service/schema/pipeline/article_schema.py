@@ -94,3 +94,97 @@ class PipelineResponseSchema(BaseModel):
     pages: dict = {}
     messages: dict = {}
     diagnostics: DiagnosticsSchema
+
+
+# -----------------------------------------------------------------------
+# Step-by-step pipeline schemas
+# -----------------------------------------------------------------------
+
+
+class ParseRequestSchema(BaseModel):
+    source_url: str
+
+
+class ParseResponseSchema(BaseModel):
+    status: str
+    source: dict
+    parsed_article: dict
+    short_intro: str = ""
+
+
+class TitlesRequestSchema(BaseModel):
+    short_intro: str
+    abstract: str
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class TitlesResponseSchema(BaseModel):
+    titles: list[str]
+
+
+class TitlesRegenerateRequestSchema(BaseModel):
+    custom_title: str
+    short_intro: str
+    abstract: str
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class EditorialRequestSchema(BaseModel):
+    parsed_article: dict
+    chosen_title: str
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class EditorialResponseSchema(BaseModel):
+    title: str
+    subtitle: str
+    short_intro: str
+    article_body: str
+    links: dict
+
+
+class CoverDescriptionRequestSchema(BaseModel):
+    article_summary: str
+    style_profile_id: str = "cinematic_orange_violet_v1"
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class CoverDescriptionResponseSchema(BaseModel):
+    description: str
+
+
+class CoverEditRequestSchema(BaseModel):
+    current_description: str
+    user_feedback: str
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class CoverGenerateRequestSchema(BaseModel):
+    description: str
+    slug: str
+    style_profile_id: str = "cinematic_orange_violet_v1"
+
+
+class CoverGenerateResponseSchema(BaseModel):
+    cover_url: str
+    public_url: str
+
+
+class BuildPublishRequestSchema(BaseModel):
+    title: str
+    subtitle: str = ""
+    article_body: str
+    short_intro: str
+    cover_image_url: str = ""
+    links: dict = {}
+    figures: list[dict] = []
+    source_url: str
+    target_languages: list[str] = ["ru", "en"]
+    prompt_profile_id: str = "default_ai_editorial_v1"
+
+
+class BuildPublishResponseSchema(BaseModel):
+    status: str
+    pages: dict
+    messages: dict
+    diagnostics: dict = {}
