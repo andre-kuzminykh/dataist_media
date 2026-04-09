@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # --- LLM -----------------------------------------------------------------
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-5.4"
-    OPENAI_IMAGE_MODEL: str = "gpt-image-1"
+    OPENAI_IMAGE_MODEL: str = "gpt-image-1.5"
 
     # --- Telegram delivery ---------------------------------------------------
     TELEGRAM_BOT_TOKEN: str = ""

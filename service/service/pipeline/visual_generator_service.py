@@ -109,12 +109,12 @@ class VisualGeneratorService:
         try:
             if ref_image:
                 # Use images.edit with reference image
-                logger.info("Generating cover with reference image (gpt-image-1 edit)")
+                logger.info("Generating cover with reference image (gpt-image-1.5 edit)")
                 ref_file = io.BytesIO(ref_image)
                 ref_file.name = "reference.png"
 
                 response = await self._client.images.edit(
-                    model="gpt-image-1",
+                    model=config.OPENAI_IMAGE_MODEL,
                     image=[ref_file],
                     prompt=prompt,
                     n=1,
