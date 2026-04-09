@@ -254,24 +254,46 @@
       "acceptance_criteria_interactive": [
         {
           "scenario_id": "SC011",
-          "user_story": "As a content manager, I want to choose from 10 generated title options or write my own.",
+          "user_story": "As a content manager, I want to choose from 10 titles or type my own text as title.",
           "bdd": {
-            "given": "Статья успешно распарсена",
+            "given": "Статья распарсена, 10 заголовков сгенерированы",
             "and_preconditions": ["LLM API доступен"],
-            "when": "Система генерирует 10 заголовков",
-            "then": "Пользователь видит 10 пронумерованных вариантов с кнопками выбора и кнопкой 'Свой заголовок'",
-            "and_postconditions": ["При вводе своего заголовка генерируются новые 10 вариантов"]
+            "when": "Пользователь нажимает кнопку 1-10 или вводит текст",
+            "then": "Кнопка — выбран заголовок. Текст — введённый текст становится заголовком напрямую",
+            "and_postconditions": ["Промежуточные сообщения удаляются"]
           }
         },
         {
           "scenario_id": "SC012",
-          "user_story": "As a content manager, I want to preview and edit cover description before generating the image.",
+          "user_story": "As a content manager, I want to preview cover description, edit it or write own prompt, then generate.",
           "bdd": {
             "given": "Заголовок выбран",
             "and_preconditions": [],
-            "when": "Система показывает описание обложки",
-            "then": "Пользователь видит описание с кнопками 'Редактировать' и 'Сгенерировать'",
-            "and_postconditions": ["При редактировании LLM обновляет описание", "При генерации создаётся изображение по референсу"]
+            "when": "Система показывает описание обложки с кнопкой 'Сгенерировать'",
+            "then": "Текст пользователя → LLM правит описание (короткий текст) или заменяет целиком (длинный). Кнопка → генерация изображения по референсу",
+            "and_postconditions": ["Промежуточные сообщения удаляются"]
+          }
+        },
+        {
+          "scenario_id": "SC013",
+          "user_story": "As a content manager, I want the final message to be a teaser with hyperlink and lang toggle.",
+          "bdd": {
+            "given": "HTML страницы опубликованы",
+            "and_preconditions": [],
+            "when": "Бот отправляет финальное сообщение",
+            "then": "Сообщение: заголовок + тизер + '📜 Полный обзор' как гиперссылка + одна кнопка RU/EN переключения",
+            "and_postconditions": ["Все промежуточные сообщения удалены", "Финальное сообщение остаётся"]
+          }
+        },
+        {
+          "scenario_id": "SC014",
+          "user_story": "As a content manager, I want to send arXiv URL directly without /review command.",
+          "bdd": {
+            "given": "Пользователь отправляет ссылку arxiv.org в чат",
+            "and_preconditions": [],
+            "when": "Бот получает сообщение",
+            "then": "Пайплайн запускается автоматически без /review",
+            "and_postconditions": []
           }
         }
       ],
