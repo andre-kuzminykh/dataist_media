@@ -293,7 +293,9 @@ async def generate_cover(request: CoverGenerateRequestSchema) -> dict:
             style_profile_id=request.style_profile_id,
             prompt_profile_id="default_ai_editorial_v1",
         )
-        image_data = await _visual_generator.generate_cover_image(full_prompt)
+        image_data = await _visual_generator.generate_cover_image(
+            full_prompt, style_profile_id=request.style_profile_id
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

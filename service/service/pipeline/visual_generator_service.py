@@ -1,5 +1,5 @@
 """
-VisualGeneratorService — generates cover images.
+VisualGeneratorService — generates cover images using gpt-image-1.
 
 ## Traceability
 Feature: F002 — Editorial Content & HTML Generation
@@ -7,15 +7,17 @@ Scenarios: SC005, SC006
 
 ## Business Rules
 BR009: Fallback cover on generation failure
-BR012: Support reference image for cover generation
+BR012: Support reference image for cover generation via images.edit
 """
 
 from __future__ import annotations
 
+import base64
+import io
 import logging
-import os
 from pathlib import Path
 
+import httpx
 from openai import AsyncOpenAI
 
 from service.config.config_loader import ConfigLoader
@@ -23,9 +25,12 @@ from service.core.config import config
 
 logger = logging.getLogger(__name__)
 
+# Cache for downloaded reference image
+_reference_cache: dict[str, bytes] = {}
+
 
 class VisualGeneratorService:
-    """Generates cover images for editorial articles using OpenAI DALL-E."""
+    """Generates cover images using OpenAI gpt-image-1 with reference image."""
 
     def __init__(self) -> None:
         self._client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
@@ -41,28 +46,10 @@ class VisualGeneratorService:
         style_profile_id: str,
         prompt_profile_id: str,
     ) -> str:
-        """Build an image-generation prompt from article meaning, style
-        profile, and prompt template.
-
-        Parameters
-        ----------
-        article_summary : str
-            Short summary of the article used to seed the visual concept.
-        style_profile_id : str
-            Identifier of the visual-style profile (colours, mood, etc.).
-        prompt_profile_id : str
-            Identifier of the prompt profile containing the ``cover``
-            template.
-
-        Returns
-        -------
-        str
-            A fully-rendered prompt string ready for the image model.
-        """
+        """Build an image-generation prompt from article meaning + style."""
         style = self._loader.load_style_profile(style_profile_id)
         palette = ", ".join(style.get("palette_names", []))
         mood = style.get("mood", "")
-        reference_description = style.get("reference_image_description", "")
 
         prompt = self._loader.get_prompt(
             prompt_profile_id,
@@ -71,45 +58,84 @@ class VisualGeneratorService:
             palette=palette,
             mood=mood,
         )
-
-        if reference_description:
-            prompt += f"\n\nStyle reference: The image should match the style of this reference — {reference_description}"
-
         return prompt
 
     # ------------------------------------------------------------------
-    # Image generation
+    # Reference image
     # ------------------------------------------------------------------
 
-    async def generate_cover_image(self, prompt: str) -> bytes | None:
-        """Call the OpenAI image-generation API and return raw image bytes.
+    async def _get_reference_image(self, style_profile_id: str) -> bytes | None:
+        """Download and cache the reference image from the style profile."""
+        style = self._loader.load_style_profile(style_profile_id)
+        ref_url = style.get("reference_image_url", "")
+        if not ref_url:
+            return None
 
-        On any failure the method returns ``None`` so that the pipeline can
-        apply the fallback-cover strategy (BR009).
+        if ref_url in _reference_cache:
+            return _reference_cache[ref_url]
 
-        Parameters
-        ----------
-        prompt : str
-            The fully-rendered image prompt.
-
-        Returns
-        -------
-        bytes | None
-            PNG image data, or ``None`` when generation fails.
-        """
         try:
-            response = await self._client.images.generate(
-                model=config.OPENAI_IMAGE_MODEL,
-                prompt=prompt,
-                n=1,
-                size="1792x1024",
-                quality="hd",
-                response_format="b64_json",
-            )
-            import base64
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(ref_url)
+                resp.raise_for_status()
+                _reference_cache[ref_url] = resp.content
+                logger.info("Reference image downloaded: %d bytes", len(resp.content))
+                return resp.content
+        except Exception:
+            logger.exception("Failed to download reference image: %s", ref_url)
+            return None
 
-            b64_data = response.data[0].b64_json
-            return base64.b64decode(b64_data)
+    # ------------------------------------------------------------------
+    # Image generation with reference (gpt-image-1 images.edit)
+    # ------------------------------------------------------------------
+
+    async def generate_cover_image(
+        self,
+        prompt: str,
+        style_profile_id: str = "cinematic_orange_violet_v1",
+    ) -> bytes | None:
+        """Generate cover image using gpt-image-1 with reference image.
+
+        Uses images.edit endpoint to pass the reference image as a source,
+        so gpt-image-1 preserves the style (orange robot, violet tones).
+
+        Falls back to images.generate (no reference) if reference unavailable.
+        Returns None on any failure (BR009 fallback).
+        """
+        ref_image = await self._get_reference_image(style_profile_id)
+
+        try:
+            if ref_image:
+                # Use images.edit with reference image
+                logger.info("Generating cover with reference image (gpt-image-1 edit)")
+                ref_file = io.BytesIO(ref_image)
+                ref_file.name = "reference.png"
+
+                response = await self._client.images.edit(
+                    model="gpt-image-1",
+                    image=[ref_file],
+                    prompt=prompt,
+                    n=1,
+                    size="1536x1024",
+                )
+
+                b64_data = response.data[0].b64_json
+                return base64.b64decode(b64_data)
+            else:
+                # Fallback: generate without reference
+                logger.info("Generating cover without reference (dall-e-3 generate)")
+                response = await self._client.images.generate(
+                    model=config.OPENAI_IMAGE_MODEL,
+                    prompt=prompt,
+                    n=1,
+                    size="1792x1024",
+                    quality="hd",
+                    response_format="b64_json",
+                )
+
+                b64_data = response.data[0].b64_json
+                return base64.b64decode(b64_data)
+
         except Exception:
             logger.exception("Cover image generation failed — applying fallback (BR009)")
             return None
@@ -119,20 +145,7 @@ class VisualGeneratorService:
     # ------------------------------------------------------------------
 
     async def save_cover_locally(self, image_data: bytes, slug: str) -> str:
-        """Save cover image to the local asset directory.
-
-        Parameters
-        ----------
-        image_data : bytes
-            Raw PNG image bytes.
-        slug : str
-            URL-safe article slug used as sub-directory name.
-
-        Returns
-        -------
-        str
-            Relative path to the saved file (e.g. ``{slug}/cover.png``).
-        """
+        """Save cover image to the local asset directory."""
         directory = Path(config.ASSET_STORAGE_PATH) / slug
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -154,34 +167,12 @@ class VisualGeneratorService:
         style_profile_id: str,
         prompt_profile_id: str,
     ) -> dict:
-        """Run the full cover-generation pipeline.
-
-        1. Build the prompt.
-        2. Generate the image.
-        3. Save it locally.
-
-        Parameters
-        ----------
-        article_summary : str
-            Short summary for prompt construction.
-        slug : str
-            URL-safe slug for file storage.
-        style_profile_id : str
-            Visual-style profile identifier.
-        prompt_profile_id : str
-            Prompt profile identifier.
-
-        Returns
-        -------
-        dict
-            ``{"prompt": ..., "image_url": ..., "public_url": ...}``.
-            On failure ``image_url`` and ``public_url`` are empty strings.
-        """
+        """Run the full cover-generation pipeline."""
         prompt = await self.generate_cover_prompt(
             article_summary, style_profile_id, prompt_profile_id
         )
 
-        image_data = await self.generate_cover_image(prompt)
+        image_data = await self.generate_cover_image(prompt, style_profile_id)
 
         if image_data is None:
             logger.warning("No cover image produced for slug=%s", slug)
