@@ -431,7 +431,7 @@ async def _build(msg, state, lang):
             article_body=editorial.get("article_body", ""),
             short_intro=data.get("short_intro", ""),
             cover_image_url=data.get("cover_url", ""),
-            links=editorial.get("links", {}),
+            links={**editorial.get("links", {}), "arxiv_url": data.get("source_url", "")},
             figures=data.get("parsed_article", {}).get("figures", []),
             source_url=data.get("source_url", ""),
         )

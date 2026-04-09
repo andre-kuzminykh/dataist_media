@@ -102,8 +102,10 @@ class HtmlBuilderService:
         # Convert markdown-like sections to HTML if necessary
         processed_html = self._build_article_html_from_sections(article_html, figures)
 
+        # OG uses full title (main + subtitle combined)
+        full_title = f"{title_main}: {subtitle_part}" if subtitle_part else title_main
         og_meta = self._build_og_meta(
-            title=title,
+            title=full_title,
             description=og_description,
             image_url=cover_image_url,
             public_url=public_url,
@@ -198,7 +200,7 @@ class HtmlBuilderService:
         figures = figures or []
 
         def _process_block(text: str) -> str:
-            """Convert a text block into HTML, handling figure markers."""
+            """Convert a text block into HTML, handling figure markers and markdown bold."""
             lines_out = []
             for line in text.split("\n"):
                 line = line.strip()
@@ -231,6 +233,10 @@ class HtmlBuilderService:
                     )
                     continue
 
+                # Convert markdown **bold** to <strong>
+                line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+                # Convert markdown *italic* to <em>
+                line = re.sub(r'\*(.+?)\*', r'<em>\1</em>', line)
                 # Regular paragraph
                 lines_out.append(f"<p>{line}</p>")
 

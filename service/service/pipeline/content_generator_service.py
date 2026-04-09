@@ -91,25 +91,20 @@ class ContentGeneratorService:
         """
         profile = self._config_loader.load_prompt_profile(prompt_profile_id)
         prompts = profile.get("prompts", {})
-        glossary = profile.get("glossary", {})
-        glossary_text = "\n".join(
-            f"- {k}: {v}" for k, v in glossary.items()
-        )
 
         # Prepare figures info
         figures_info = ""
-        for fig in parsed_article.get("figures", []):
-            label = fig.get("figure_label", "")
+        for i, fig in enumerate(parsed_article.get("figures", [])):
+            label = fig.get("figure_label", "") or f"Figure {i}"
             caption = fig.get("caption", "")
-            figures_info += f"{label}: {caption}\n"
+            figures_info += f"[{i}] {label}: {caption}\n"
 
         # --- Generate the main article body ---------------------------------
         editorial_prompt = prompts.get("editorial", "")
         editorial_prompt = editorial_prompt.format(
-            glossary=glossary_text,
             abstract=parsed_article.get("abstract", ""),
             article_text=parsed_article.get("article", ""),
-            figures_info=figures_info or "(no figures)",
+            figures_info=figures_info or "(нет иллюстраций)",
         )
         article_body = await self._call_llm(editorial_prompt, max_tokens=16384)
 
