@@ -317,30 +317,20 @@ async def _build_and_publish(message: Message, state: FSMContext, lang: str) -> 
         en_url = pages.get("en_html_url", "")
         teaser = result.get("messages", {}).get("ru_telegram_text", "")
 
-        # Build result message
+        # Build result message (text links — no inline URL buttons
+        # because Telegram requires HTTPS for button URLs)
         title = data.get("chosen_title", "")
-        text_parts = [f"<b>{title}</b>"]
+        text_parts = [f"✅ <b>{title}</b>"]
         if teaser and "<b>" not in teaser:
             text_parts.append(f"\n{teaser}")
         text_parts.append("")
 
         if ru_url:
-            text_parts.append(f'🇷🇺 <a href="{ru_url}">Читать статью</a>')
+            text_parts.append(f'🇷🇺 <a href="{ru_url}">Читать статью (RU)</a>')
         if en_url:
-            text_parts.append(f'🇬🇧 <a href="{en_url}">Read in English</a>')
+            text_parts.append(f'🇬🇧 <a href="{en_url}">Read in English (EN)</a>')
 
-        # Buttons
-        buttons = []
-        row = []
-        if ru_url:
-            row.append(InlineKeyboardButton(text=vocab.BTN_READ_RU, url=ru_url))
-        if en_url:
-            row.append(InlineKeyboardButton(text=vocab.BTN_READ_EN, url=en_url))
-        if row:
-            buttons.append(row)
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
-        await message.answer("\n".join(text_parts), reply_markup=keyboard, disable_web_page_preview=True)
+        await message.answer("\n".join(text_parts), disable_web_page_preview=False)
 
     except Exception as exc:
         logger.exception("Build and publish failed")
