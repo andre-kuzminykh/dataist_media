@@ -345,7 +345,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
     steps: list[dict] = []
 
     article_html = _html_builder._build_article_html_from_sections(
-        request.article_body
+        request.article_body, request.figures
     )
 
     # --- RU HTML ---
@@ -388,7 +388,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
             en_body = await _content_generator.translate_article(
                 request.article_body, request.prompt_profile_id
             )
-            en_article_html = _html_builder._build_article_html_from_sections(en_body)
+            en_article_html = _html_builder._build_article_html_from_sections(en_body, request.figures)
 
             en_artifact = _html_builder.build_html_page(
                 title=request.title,

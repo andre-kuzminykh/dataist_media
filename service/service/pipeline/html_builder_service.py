@@ -97,7 +97,7 @@ class HtmlBuilderService:
         public_url = f"{public_base_url}/{slug}/{filename}"
 
         # Convert markdown-like sections to HTML if necessary
-        processed_html = self._build_article_html_from_sections(article_html)
+        processed_html = self._build_article_html_from_sections(article_html, figures)
 
         og_meta = self._build_og_meta(
             title=title,
@@ -177,56 +177,77 @@ class HtmlBuilderService:
             "locale": og_locale,
         }
 
-    def _build_article_html_from_sections(self, article_body: str) -> str:
+    def _build_article_html_from_sections(
+        self, article_body: str, figures: list[dict] | None = None
+    ) -> str:
         """Convert markdown-like content with ``##`` headings into HTML.
 
-        If the body already looks like pure HTML (starts with ``<``) it is
-        returned unchanged.  Otherwise the text is split on ``##`` heading
-        lines and each section is wrapped in a ``<section>`` with ``<h2>``
-        and ``<p>`` tags.
-
-        Parameters
-        ----------
-        article_body : str
-            Raw article text that may contain ``##`` headings.
-
-        Returns
-        -------
-        str
-            HTML-formatted article content.
+        Processes ``[FIGURE:N]`` and ``[CAPTION:text]`` markers to insert
+        figure elements inline where the LLM placed them.
         """
         stripped = article_body.strip()
         if not stripped:
             return ""
 
-        # Already HTML — return as-is
         if stripped.startswith("<"):
             return stripped
 
-        # No markdown headings — wrap everything in paragraphs
-        if "## " not in stripped:
-            paragraphs = [p.strip() for p in stripped.split("\n\n") if p.strip()]
-            return "\n".join(f"<p>{p}</p>" for p in paragraphs)
+        figures = figures or []
 
-        # Split by ## headings
+        def _process_block(text: str) -> str:
+            """Convert a text block into HTML, handling figure markers."""
+            lines_out = []
+            for line in text.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+
+                # [FIGURE:N] marker
+                fig_match = re.match(r"\[FIGURE:(\d+)\]", line)
+                if fig_match:
+                    idx = int(fig_match.group(1))
+                    if 0 <= idx < len(figures):
+                        fig = figures[idx]
+                        url = fig.get("url", "")
+                        if url:
+                            lines_out.append(
+                                f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
+                                f'<div class="arxiv-chart flex flex-col items-center">'
+                                f'<img src="{url}" alt="" class="w-full object-contain rounded-lg bg-white/50">'
+                            )
+                    continue
+
+                # [CAPTION:text] marker
+                cap_match = re.match(r"\[CAPTION:(.+)\]", line)
+                if cap_match:
+                    caption = cap_match.group(1).strip()
+                    lines_out.append(
+                        f'<p class="text-sm md:text-base text-[var(--text-muted)] mt-5 '
+                        f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
+                        f'</div></figure>'
+                    )
+                    continue
+
+                # Regular paragraph
+                lines_out.append(f"<p>{line}</p>")
+
+            return "\n".join(lines_out)
+
+        if "## " not in stripped:
+            return _process_block(stripped)
+
         sections: list[str] = []
         parts = re.split(r"^## (.+)$", stripped, flags=re.MULTILINE)
 
-        # parts[0] is text before the first heading (preamble)
         preamble = parts[0].strip()
         if preamble:
-            paragraphs = [p.strip() for p in preamble.split("\n\n") if p.strip()]
-            section_html = "\n".join(f"<p>{p}</p>" for p in paragraphs)
-            sections.append(f"<section>\n{section_html}\n</section>")
+            sections.append(f"<section>\n{_process_block(preamble)}\n</section>")
 
-        # Remaining parts alternate: heading, body, heading, body, ...
         for i in range(1, len(parts), 2):
             heading = parts[i].strip()
             body = parts[i + 1].strip() if i + 1 < len(parts) else ""
-            paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
-            body_html = "\n".join(f"<p>{p}</p>" for p in paragraphs)
             sections.append(
-                f"<section>\n<h2>{heading}</h2>\n{body_html}\n</section>"
+                f"<section>\n<h2>{heading}</h2>\n{_process_block(body)}\n</section>"
             )
 
         return "\n".join(sections)

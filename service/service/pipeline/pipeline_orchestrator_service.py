@@ -202,7 +202,7 @@ class PipelineOrchestratorService:
         if "ru" in target_languages:
             try:
                 article_html = self.html_builder._build_article_html_from_sections(
-                    editorial.get("article_body", "")
+                    editorial.get("article_body", ""), figures
                 )
                 ru_artifact = self.html_builder.build_html_page(
                     title=editorial["title"],
@@ -250,7 +250,7 @@ class PipelineOrchestratorService:
                 en_body = await self.content_generator.translate_article(
                     editorial.get("article_body", ""), prompt_profile_id
                 )
-                en_article_html = self.html_builder._build_article_html_from_sections(en_body)
+                en_article_html = self.html_builder._build_article_html_from_sections(en_body, figures)
 
                 en_title = editorial["title"]  # Could translate title too
                 en_artifact = self.html_builder.build_html_page(

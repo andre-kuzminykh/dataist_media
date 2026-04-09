@@ -120,10 +120,8 @@
                     🤖 Датаист | {{ date }}
                 </div>
                 <h1 class="text-2xl sm:text-3xl md:text-5xl lg:text-5xl font-montserrat font-black tracking-tight mb-8 leading-[1.2] text-[var(--text-main)]">
-                    {{ title }}
-                    {% if subtitle %}
-                    <br><span class="text-lg sm:text-xl md:text-2xl lg:text-3xl text-[var(--text-muted)] font-bold block mt-3">{{ subtitle }}</span>
-                    {% endif %}
+                    {{ title }}<br>
+                    <span class="text-lg sm:text-xl md:text-2xl lg:text-3xl text-[var(--text-muted)] font-bold block mt-3">{{ subtitle | default('') }}</span>
                 </h1>
 
                 {% if cover_image_url %}
@@ -139,22 +137,6 @@
             <div class="article-content max-w-4xl mx-auto w-full fade-in">
                 {{ article_html | safe }}
             </div>
-
-            <!-- Inline figures from paper -->
-            {% if figures %}
-            {% for fig in figures %}
-            {% if fig.url %}
-            <figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">
-                <div class="arxiv-chart flex flex-col items-center">
-                    <img src="{{ fig.url }}" alt="{{ fig.caption | default('') }}" class="w-full object-contain rounded-lg bg-white/50">
-                    {% if fig.caption %}
-                    <p class="text-sm md:text-base text-[var(--text-muted)] mt-5 text-center font-mono max-w-3xl leading-relaxed">{{ fig.caption }}</p>
-                    {% endif %}
-                </div>
-            </figure>
-            {% endif %}
-            {% endfor %}
-            {% endif %}
 
             <!-- Footer CTA -->
             <div class="max-w-4xl mx-auto w-full mt-16 pt-12 border-t border-[var(--glass-border)] text-center fade-in">
