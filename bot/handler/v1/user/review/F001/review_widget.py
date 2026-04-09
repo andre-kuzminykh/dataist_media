@@ -426,7 +426,7 @@ async def _build(msg, state, lang):
             data.get("parsed_article", {}), data.get("chosen_title", "Article"),
         )
         result = await _api.build_and_publish(
-            title=data.get("chosen_title", editorial.get("title", "")),
+            title=editorial.get("title", data.get("chosen_title", "")),
             subtitle=editorial.get("subtitle", ""),
             article_body=editorial.get("article_body", ""),
             short_intro=data.get("short_intro", ""),
