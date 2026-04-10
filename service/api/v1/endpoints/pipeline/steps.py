@@ -413,9 +413,11 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
     en_page_url = ""
     if "en" in request.target_languages:
         try:
+            logger.info("Translating article to English...")
             en_body = await _content_generator.translate_article(
                 request.article_body, request.prompt_profile_id
             )
+            logger.info("Translation done, length=%d chars", len(en_body))
             en_article_html = _html_builder._build_article_html_from_sections(en_body, request.figures)
 
             en_artifact = _html_builder.build_html_page(
