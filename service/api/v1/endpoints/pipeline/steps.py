@@ -366,6 +366,16 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
         request.article_body, request.figures
     )
 
+    # Extract Russian description for OG from article body (not English abstract)
+    og_desc = ""
+    for para in request.article_body.split("\n\n"):
+        p = para.strip()
+        if p and not p.startswith("#") and not p.startswith("["):
+            og_desc = p[:200]
+            break
+    if not og_desc:
+        og_desc = request.short_intro[:200]
+
     # --- RU HTML ---
     ru_page_url = ""
     if "ru" in request.target_languages:
@@ -380,7 +390,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                 figures=request.figures,
                 locale="ru",
                 slug=slug,
-                og_description=request.short_intro[:200],
+                og_description=og_desc,
                 public_base_url=public_base,
             )
             steps.append({"name": "build_html_ru", "status": "ok"})
@@ -418,7 +428,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                 figures=request.figures,
                 locale="en",
                 slug=slug,
-                og_description=request.short_intro[:200],
+                og_description=request.short_intro[:200],  # EN abstract OK for EN page
                 public_base_url=public_base,
             )
             steps.append({"name": "build_html_en", "status": "ok"})

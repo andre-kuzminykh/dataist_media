@@ -102,12 +102,17 @@ class HtmlBuilderService:
         # Convert markdown-like sections to HTML if necessary
         processed_html = self._build_article_html_from_sections(article_html, figures)
 
+        # OG image: use cover if HTTPS, otherwise fallback to reference
+        og_image = cover_image_url
+        if og_image and not og_image.startswith("https://"):
+            og_image = "https://raw.githubusercontent.com/andre-kuzminykh/dataist/refs/heads/main/2026-04-03/_ChatGPT%20Image%20Apr%203%2C%202026%2C%2011_25_03%20PM.jpg"
+
         # OG uses full title (main + subtitle combined)
         full_title = f"{title_main}: {subtitle_part}" if subtitle_part else title_main
         og_meta = self._build_og_meta(
             title=full_title,
             description=og_description,
-            image_url=cover_image_url,
+            image_url=og_image,
             public_url=public_url,
             locale=locale,
         )
