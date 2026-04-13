@@ -420,9 +420,33 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
             logger.info("Translation done, length=%d chars", len(en_body))
             en_article_html = _html_builder._build_article_html_from_sections(en_body, request.figures)
 
+            # Translate title+subtitle for EN page
+            en_title = request.title
+            en_subtitle = request.subtitle
+            try:
+                en_title_raw = await _content_generator._call_llm(
+                    f"Translate to English (return ONLY the translation):\n{request.title}", max_tokens=100
+                )
+                en_title = en_title_raw.strip().strip('"')
+                if request.subtitle:
+                    en_sub_raw = await _content_generator._call_llm(
+                        f"Translate to English (return ONLY the translation):\n{request.subtitle}", max_tokens=200
+                    )
+                    en_subtitle = en_sub_raw.strip().strip('"')
+            except Exception:
+                logger.warning("EN title translation failed, using RU")
+
+            # EN OG description from first paragraph of translated body
+            en_og_desc = request.short_intro[:200]
+            for para in en_body.split("\n\n"):
+                p = para.strip()
+                if p and not p.startswith("#") and not p.startswith("["):
+                    en_og_desc = p[:200]
+                    break
+
             en_artifact = _html_builder.build_html_page(
-                title=request.title,
-                subtitle=request.subtitle,
+                title=en_title,
+                subtitle=en_subtitle,
                 date=date_str,
                 cover_image_url=request.cover_image_url,
                 article_html=en_article_html,
@@ -430,7 +454,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                 figures=request.figures,
                 locale="en",
                 slug=slug,
-                og_description=request.short_intro[:200],  # EN abstract OK for EN page
+                og_description=en_og_desc,
                 public_base_url=public_base,
             )
             steps.append({"name": "build_html_en", "status": "ok"})
@@ -467,9 +491,19 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
         warnings.append("EN teaser generation failed")
 
     # --- Telegram messages ---
+    # Use EN title for EN message if available
+    _en_title = locals().get("en_title", request.title)
     try:
-        ru_text, en_text = _telegram_delivery._format_telegram_message(
+        ru_text, _ = _telegram_delivery._format_telegram_message(
             title=request.title,
+            ru_url=ru_page_url,
+            en_url=en_page_url,
+            teaser_ru=teaser_ru,
+            teaser_en=teaser_en,
+            cover_url=request.cover_image_url,
+        )
+        _, en_text = _telegram_delivery._format_telegram_message(
+            title=_en_title,
             ru_url=ru_page_url,
             en_url=en_page_url,
             teaser_ru=teaser_ru,
