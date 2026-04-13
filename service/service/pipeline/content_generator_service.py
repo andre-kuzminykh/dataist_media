@@ -209,11 +209,17 @@ class ContentGeneratorService:
             logger.warning("Could not parse link extraction response as JSON")
             links = {}
 
+        def _first_str(val) -> str:
+            """Extract first string from a value that might be a list."""
+            if isinstance(val, list):
+                return val[0] if val else ""
+            return str(val) if val else ""
+
         return {
-            "github_url": links.get("github_url", ""),
-            "huggingface_url": links.get("huggingface_url", ""),
-            "project_url": links.get("project_url", ""),
-            "demo_url": links.get("demo_url", ""),
+            "github_url": _first_str(links.get("github_url", "")),
+            "huggingface_url": _first_str(links.get("huggingface_url", "")),
+            "project_url": _first_str(links.get("project_url", "")),
+            "demo_url": _first_str(links.get("demo_url", "")),
         }
 
     async def translate_article(
