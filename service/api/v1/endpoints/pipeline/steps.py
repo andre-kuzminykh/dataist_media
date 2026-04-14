@@ -365,15 +365,33 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
         request.article_body, request.figures
     )
 
+    def _truncate_by_sentence(text: str, max_len: int = 220) -> str:
+        """Truncate text at sentence boundary, not mid-word."""
+        text = text.strip()
+        if len(text) <= max_len:
+            return text
+        # Find last sentence end before max_len
+        cut = text[:max_len]
+        for sep in [". ", "! ", "? ", ".\n", "!\n", "?\n"]:
+            idx = cut.rfind(sep)
+            if idx > max_len // 2:
+                return cut[:idx + 1].strip()
+        # Fallback: cut at last space
+        idx = cut.rfind(" ")
+        return (cut[:idx] if idx > 0 else cut).strip() + "…"
+
     # Extract Russian description for OG from article body (not English abstract)
     og_desc = ""
     for para in request.article_body.split("\n\n"):
         p = para.strip()
         if p and not p.startswith("#") and not p.startswith("["):
-            og_desc = p[:200]
+            # Strip HTML tags (paragraph may have <strong>, <em>)
+            import re as _re
+            p = _re.sub(r"<[^>]+>", "", p)
+            og_desc = _truncate_by_sentence(p, 220)
             break
     if not og_desc:
-        og_desc = request.short_intro[:200]
+        og_desc = _truncate_by_sentence(request.short_intro, 220)
 
     # --- RU HTML ---
     ru_page_url = ""
@@ -436,11 +454,13 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                 logger.warning("EN title translation failed, using RU")
 
             # EN OG description from first paragraph of translated body
-            en_og_desc = request.short_intro[:200]
+            en_og_desc = _truncate_by_sentence(request.short_intro, 220)
+            import re as _re2
             for para in en_body.split("\n\n"):
                 p = para.strip()
                 if p and not p.startswith("#") and not p.startswith("["):
-                    en_og_desc = p[:200]
+                    p = _re2.sub(r"<[^>]+>", "", p)
+                    en_og_desc = _truncate_by_sentence(p, 220)
                     break
 
             en_artifact = _html_builder.build_html_page(
