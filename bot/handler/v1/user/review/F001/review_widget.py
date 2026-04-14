@@ -273,7 +273,11 @@ async def h_tcustom_in(m: Message, state: FSMContext):
 async def _show_cover(msg, state, lang):
     data = await state.get_data()
     try:
-        desc = await _api.generate_cover_description(data.get("short_intro", ""))
+        # Build rich context: chosen title + abstract (limited) for image generation
+        chosen = data.get("chosen_title", "")
+        abstract = data.get("abstract", "") or data.get("short_intro", "")
+        context = f"Заголовок: {chosen}\n\nО чём статья: {abstract[:800]}"
+        desc = await _api.generate_cover_description(context)
         await state.update_data(cover_description=desc)
         await state.set_state(ReviewStates.viewing_cover_description)
         await _clean(msg.chat.id, state, msg.bot)

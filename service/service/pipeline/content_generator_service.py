@@ -313,12 +313,12 @@ class ContentGeneratorService:
         article_summary: str,
         prompt_profile_id: str,
     ) -> str:
-        """Generate a short visual cover description (2-3 sentences)."""
+        """Generate a short visual cover description (1-2 sentences) based on article context."""
         profile = self._config_loader.load_prompt_profile(prompt_profile_id)
         prompts = profile.get("prompts", {})
         prompt = prompts.get("cover_description", "")
         prompt = prompt.format(article_summary=article_summary)
-        return (await self._call_llm(prompt, max_tokens=256)).strip()
+        return (await self._call_llm(prompt, max_tokens=512)).strip()
 
     async def edit_cover_description(
         self,
