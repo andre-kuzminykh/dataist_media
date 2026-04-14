@@ -197,18 +197,17 @@ async def generate_editorial(request: EditorialRequestSchema) -> dict:
 
     # Override the generated title with the user's chosen title
     editorial["title"] = request.chosen_title
+    editorial["subtitle"] = ""
 
-    # Split chosen title into main + subtitle via LLM
-    try:
-        title_split = await _content_generator.generate_subtitle(
-            title=request.chosen_title,
-            short_intro=editorial.get("short_intro", ""),
-            prompt_profile_id=request.prompt_profile_id,
-        )
-        editorial["title"] = title_split["main"]
-        editorial["subtitle"] = title_split["sub"]
-    except GenerationError:
-        logger.warning("Title split failed, using full title")
+    # Split ONLY if title has natural separator (":", "—", " - ")
+    # If user chose a short title without separator — keep it as-is, no subtitle
+    chosen = request.chosen_title
+    for sep in [":", " — ", " - "]:
+        if sep in chosen:
+            parts = chosen.split(sep, 1)
+            editorial["title"] = parts[0].strip()
+            editorial["subtitle"] = parts[1].strip()
+            break
 
     return {
         "title": editorial["title"],
