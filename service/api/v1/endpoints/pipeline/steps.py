@@ -454,9 +454,46 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                 # Step 1: reserve folder name (find available)
                 folder = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 folder = await _github_publisher._find_available_folder(folder)
-
-                # Step 2: rebuild HTML with HTTPS cover URL pointing to that folder
                 pages_url = config.GITHUB_PAGES_URL.rstrip("/")
+
+                # Step 1b: download all figure images and prepare local URLs
+                figure_files: list[tuple[str, bytes]] = []  # (filename, bytes)
+                figure_url_map: dict[str, str] = {}  # original URL -> local URL
+                async with httpx.AsyncClient(
+                    timeout=30.0,
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; DataistBot/1.0)"},
+                ) as _fc:
+                    for i, fig in enumerate(request.figures):
+                        url = fig.get("url", "")
+                        if not url or not url.startswith("http"):
+                            continue
+                        try:
+                            r = await _fc.get(url)
+                            if r.status_code == 200 and r.content:
+                                ext = "png"
+                                if url.lower().endswith((".jpg", ".jpeg")):
+                                    ext = "jpg"
+                                fname = f"fig_{i}.{ext}"
+                                figure_files.append((fname, r.content))
+                                figure_url_map[url] = f"{pages_url}/{folder}/{fname}"
+                                logger.info("Downloaded figure %d: %d bytes", i, len(r.content))
+                            else:
+                                logger.warning("Figure %d HTTP %d for %s", i, r.status_code, url)
+                        except Exception as _fe:
+                            logger.warning("Figure %d download failed: %s", i, _fe)
+
+                # Step 2: rebuild article HTML with replaced figure URLs
+                figures_for_html = []
+                for fig in request.figures:
+                    new_fig = dict(fig)
+                    if fig.get("url") in figure_url_map:
+                        new_fig["url"] = figure_url_map[fig["url"]]
+                    figures_for_html.append(new_fig)
+
+                article_html_gh = _html_builder._build_article_html_from_sections(
+                    request.article_body, figures_for_html
+                )
+
                 cover_https_url = (
                     f"{pages_url}/{folder}/cover.png" if cover_bytes else request.cover_image_url
                 )
@@ -465,26 +502,42 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                     subtitle=request.subtitle,
                     date=date_str,
                     cover_image_url=cover_https_url,
-                    article_html=article_html,
+                    article_html=article_html_gh,
                     links=request.links,
-                    figures=request.figures,
+                    figures=figures_for_html,
                     locale="ru",
                     slug=slug,
                     og_description=og_desc,
                     public_base_url=public_base,
                 )
 
-                # Step 3: single publish with correct URLs
-                gh_result = await _github_publisher.publish(
-                    html_content=ru_artifact_gh["html"],
-                    cover_image=cover_bytes,
-                    folder_name=folder,
+                # Step 3: upload cover, all figures, and HTML to GitHub
+                if cover_bytes:
+                    await _github_publisher._put_file(
+                        f"{folder}/cover.png", cover_bytes, f"Add cover for {folder}"
+                    )
+                for fname, fbytes in figure_files:
+                    try:
+                        await _github_publisher._put_file(
+                            f"{folder}/{fname}", fbytes, f"Add {fname}"
+                        )
+                    except Exception as _pe:
+                        logger.warning("Failed to upload %s: %s", fname, _pe)
+                await _github_publisher._put_file(
+                    f"{folder}/index.html",
+                    ru_artifact_gh["html"].encode("utf-8"),
+                    f"Add article {folder}",
                 )
-                if gh_result.get("html_url"):
-                    pages["ru_html_url"] = gh_result["html_url"]
-                    ru_page_url = gh_result["html_url"]
-                    if gh_result.get("cover_url"):
-                        pages["cover_url"] = gh_result["cover_url"]
+
+                gh_result = {
+                    "html_url": f"{pages_url}/{folder}/",
+                    "cover_url": f"{pages_url}/{folder}/cover.png" if cover_bytes else "",
+                    "folder": folder,
+                }
+                pages["ru_html_url"] = gh_result["html_url"]
+                ru_page_url = gh_result["html_url"]
+                if gh_result["cover_url"]:
+                    pages["cover_url"] = gh_result["cover_url"]
 
                 steps.append({"name": "publish_github", "status": "ok"})
             except Exception as gh_exc:
