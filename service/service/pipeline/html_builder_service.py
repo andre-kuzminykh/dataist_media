@@ -307,19 +307,44 @@ class HtmlBuilderService:
         if preamble:
             sections.append(f"<section>\n{_process_block(preamble)}\n</section>")
 
+        section_count = 0
         for i in range(1, len(parts), 2):
             heading = parts[i].strip()
             body = parts[i + 1].strip() if i + 1 < len(parts) else ""
             sections.append(
                 f"<section>\n<h2>{heading}</h2>\n{_process_block(body)}\n</section>"
             )
+            section_count += 1
 
-        # Append any figures that LLM didn't place inline
-        # Don't append unused figures — LLM chose which ones matter
-        remaining = []
-
-        if remaining:
-            sections.append("\n".join(remaining))
+        # FALLBACK: if LLM didn't place any figures, auto-distribute them
+        # across sections (max 4 figures, evenly spaced)
+        if not used_figures and figures and section_count > 0:
+            available = [(i, f) for i, f in enumerate(figures) if f.get("url")]
+            max_figs = min(len(available), 4, max(1, section_count))
+            if max_figs > 0 and available:
+                # Pick figures evenly: first, middle, etc.
+                step = max(1, len(available) // max_figs)
+                picked = available[::step][:max_figs]
+                # Insert after every section_count // max_figs sections
+                section_step = max(1, section_count // max_figs)
+                new_sections = []
+                fig_idx = 0
+                for s_idx, sec in enumerate(sections):
+                    new_sections.append(sec)
+                    # Insert figure after this section if it's a step boundary
+                    if (s_idx + 1) % section_step == 0 and fig_idx < len(picked):
+                        idx, fig = picked[fig_idx]
+                        caption = fig.get("caption", "") or f"Иллюстрация {idx + 1}"
+                        new_sections.append(
+                            f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
+                            f'<div class="arxiv-chart flex flex-col items-center">'
+                            f'<img src="{fig["url"]}" alt="" class="w-full object-contain rounded-lg bg-white/50">'
+                            f'<p class="text-sm md:text-base text-gray-800 dark:text-gray-300 mt-5 '
+                            f'text-center font-mono max-w-3xl leading-relaxed">{caption}</p>'
+                            f'</div></figure>'
+                        )
+                        fig_idx += 1
+                sections = new_sections
 
         return "\n".join(sections)
 

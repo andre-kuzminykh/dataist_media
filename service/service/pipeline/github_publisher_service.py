@@ -22,9 +22,20 @@ class GitHubPublisherService:
     """Publishes article HTML and cover image to a GitHub repository."""
 
     def __init__(self) -> None:
-        self._token = config.GITHUB_TOKEN
-        self._repo = config.GITHUB_REPO  # "owner/repo"
-        self._pages_url = config.GITHUB_PAGES_URL.rstrip("/")
+        # Read config lazily on each access via properties below
+        pass
+
+    @property
+    def _token(self) -> str:
+        return config.GITHUB_TOKEN
+
+    @property
+    def _repo(self) -> str:
+        return config.GITHUB_REPO
+
+    @property
+    def _pages_url(self) -> str:
+        return config.GITHUB_PAGES_URL.rstrip("/")
 
     def _headers(self) -> dict:
         return {
@@ -80,12 +91,14 @@ class GitHubPublisherService:
         - html_url: raw URL to index.html
         - cover_url: raw URL to cover.png (or empty)
         """
+        logger.info("GitHub publish: token=%s, repo=%s", "set" if self._token else "MISSING", self._repo)
         if not self._token or not self._repo:
             logger.warning("GitHub publishing skipped: no token or repo configured")
             return {"html_url": "", "cover_url": ""}
 
         if not folder_name:
             folder_name = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        logger.info("GitHub publish: folder=%s", folder_name)
 
         result = {"html_url": "", "cover_url": ""}
 
