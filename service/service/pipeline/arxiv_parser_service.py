@@ -79,14 +79,14 @@ class ArxivParserService:
 
     @staticmethod
     def _resolve_image_url(src: str, source_base: str) -> str:
-        """Resolve a potentially relative image *src* to an absolute URL.
-
-        Uses the ``https://arxiv.org`` domain as the authority for
-        relative paths (NFR-2).
-        """
+        """Resolve a potentially relative image *src* to an absolute URL."""
         if src.startswith(("http://", "https://")):
             return src
-        base = f"https://arxiv.org{source_base}"
+        # Ensure source_base ends with "/" so urljoin doesn't drop the last segment
+        # e.g. "/html/2602.11103v1" + "imgs/x.png" → "/html/imgs/x.png" (BUG)
+        # vs    "/html/2602.11103v1/" + "imgs/x.png" → "/html/2602.11103v1/imgs/x.png" (OK)
+        base_path = source_base if source_base.endswith("/") else source_base + "/"
+        base = f"https://arxiv.org{base_path}"
         return urljoin(base, src)
 
     @staticmethod
