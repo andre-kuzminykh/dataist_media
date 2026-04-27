@@ -15,6 +15,7 @@ Provides granular endpoints so the bot can present an interactive flow:
 Feature: F001, F002 -- Interactive step-by-step pipeline
 """
 
+import httpx
 import logging
 from datetime import datetime, timezone
 
