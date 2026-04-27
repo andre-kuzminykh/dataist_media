@@ -451,34 +451,39 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
                         if _cr.status_code == 200:
                             cover_bytes = _cr.content
 
-                # Rebuild HTML with GitHub cover URL for OG
+                # Step 1: reserve folder name (find available)
+                folder = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                folder = await _github_publisher._find_available_folder(folder)
+
+                # Step 2: rebuild HTML with HTTPS cover URL pointing to that folder
+                pages_url = config.GITHUB_PAGES_URL.rstrip("/")
+                cover_https_url = (
+                    f"{pages_url}/{folder}/cover.png" if cover_bytes else request.cover_image_url
+                )
+                ru_artifact_gh = _html_builder.build_html_page(
+                    title=request.title,
+                    subtitle=request.subtitle,
+                    date=date_str,
+                    cover_image_url=cover_https_url,
+                    article_html=article_html,
+                    links=request.links,
+                    figures=request.figures,
+                    locale="ru",
+                    slug=slug,
+                    og_description=og_desc,
+                    public_base_url=public_base,
+                )
+
+                # Step 3: single publish with correct URLs
                 gh_result = await _github_publisher.publish(
-                    html_content=ru_artifact["html"],
+                    html_content=ru_artifact_gh["html"],
                     cover_image=cover_bytes,
+                    folder_name=folder,
                 )
                 if gh_result.get("html_url"):
                     pages["ru_html_url"] = gh_result["html_url"]
                     ru_page_url = gh_result["html_url"]
-
-                    # Rebuild HTML with HTTPS cover URL in OG tags
                     if gh_result.get("cover_url"):
-                        ru_artifact_gh = _html_builder.build_html_page(
-                            title=request.title,
-                            subtitle=request.subtitle,
-                            date=date_str,
-                            cover_image_url=gh_result["cover_url"],
-                            article_html=article_html,
-                            links=request.links,
-                            figures=request.figures,
-                            locale="ru",
-                            slug=slug,
-                            og_description=og_desc,
-                            public_base_url=public_base,
-                        )
-                        await _github_publisher.publish(
-                            html_content=ru_artifact_gh["html"],
-                            cover_image=None,  # already uploaded
-                        )
                         pages["cover_url"] = gh_result["cover_url"]
 
                 steps.append({"name": "publish_github", "status": "ok"})
