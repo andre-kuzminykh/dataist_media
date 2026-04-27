@@ -27,7 +27,7 @@ from aiogram.fsm.context import FSMContext
 
 from bot.core import vocab
 from bot.state.review_state import ReviewStates
-from bot.callback.review_callback import TitleCallback, CoverCallback, LangCallback
+from bot.callback.review_callback import TitleCallback, CoverCallback, LangCallback, DeleteCallback
 from bot.service.api.pipeline_api import PipelineAPI
 from bot.node.review.trigger.review_trigger import ReviewTrigger
 
@@ -117,16 +117,27 @@ def _cover_kb():
 
 def _image_review_kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Утвердить", callback_data=CoverCallback(action="approve").pack()),
         InlineKeyboardButton(text="🔄 Новое описание", callback_data=CoverCallback(action="regen").pack()),
+        InlineKeyboardButton(text="✅ Утвердить", callback_data=CoverCallback(action="approve").pack()),
     ]])
 
 
-def _lang_toggle_kb(show_next: str = "en"):
-    """Inline callback button to switch RU/EN — NOT a URL button."""
+def _lang_toggle_kb(show_next: str = "en", folder: str = ""):
+    """Inline keyboard for final message: lang toggle + delete."""
     label = "🇬🇧 English" if show_next == "en" else "🇷🇺 Русский"
+    rows = [[InlineKeyboardButton(text=label, callback_data=LangCallback(show=show_next).pack())]]
+    if folder:
+        rows.append([InlineKeyboardButton(
+            text="🗑 Удалить",
+            callback_data=DeleteCallback(action="ask", folder=folder).pack(),
+        )])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _delete_confirm_kb(folder: str):
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=label, callback_data=LangCallback(show=show_next).pack()),
+        InlineKeyboardButton(text="❌ Нет", callback_data=DeleteCallback(action="cancel", folder=folder).pack()),
+        InlineKeyboardButton(text="✅ Да, удалить", callback_data=DeleteCallback(action="confirm", folder=folder).pack()),
     ]])
 
 
@@ -513,13 +524,21 @@ async def _build(msg, state, lang):
         ru_text = _fmt_final(title, teaser_ru, ru_url)
         en_text = _fmt_final(title, teaser_en, en_url)
 
+        # Extract folder from GitHub URL (e.g. https://dataist.ai/2026-04-27/)
+        folder = ""
+        for url in [ru_url, en_url]:
+            m = re.search(r"/(\d{4}-\d{2}-\d{2})/?$", url or "")
+            if m:
+                folder = m.group(1)
+                break
+
         # Cache for lang toggle (survives state.clear)
-        _final_cache[cid] = {"ru": ru_text, "en": en_text}
+        _final_cache[cid] = {"ru": ru_text, "en": en_text, "folder": folder}
 
         # Show RU by default, button to switch to EN
         display = ru_text if ru_text.strip() else en_text
         show_next = "en" if ru_text.strip() else "ru"
-        await msg.answer(display, reply_markup=_lang_toggle_kb(show_next), disable_web_page_preview=False)
+        await msg.answer(display, reply_markup=_lang_toggle_kb(show_next, folder), disable_web_page_preview=False)
 
     except Exception as e:
         logger.exception("Build failed")
@@ -546,7 +565,69 @@ async def h_lang_toggle(cb: CallbackQuery, callback_data: LangCallback, state: F
     # Next toggle goes to the other language
     next_show = "ru" if show == "en" else "en"
 
+    folder = cached.get("folder", "")
     try:
-        await cb.message.edit_text(text, reply_markup=_lang_toggle_kb(next_show), disable_web_page_preview=False)
+        await cb.message.edit_text(text, reply_markup=_lang_toggle_kb(next_show, folder), disable_web_page_preview=False)
     except Exception:
         pass
+
+
+# ── Delete article ────────────────────────────────────────────────────
+
+@router.callback_query(DeleteCallback.filter(F.action == "ask"))
+async def h_del_ask(cb: CallbackQuery, callback_data: DeleteCallback):
+    """Show delete confirmation."""
+    await cb.answer()
+    folder = callback_data.folder
+    try:
+        await cb.message.edit_text(
+            f"🗑 <b>Удалить статью {folder}?</b>\n\nФайлы будут удалены из GitHub репозитория.",
+            reply_markup=_delete_confirm_kb(folder),
+        )
+    except Exception:
+        pass
+
+
+@router.callback_query(DeleteCallback.filter(F.action == "cancel"))
+async def h_del_cancel(cb: CallbackQuery, state: FSMContext):
+    """Restore the final message after cancel."""
+    await cb.answer()
+    cid = cb.message.chat.id
+    cached = _final_cache.get(cid, {})
+    if not cached:
+        try:
+            await cb.message.delete()
+        except Exception:
+            pass
+        return
+    text = cached.get("ru", "") or cached.get("en", "")
+    folder = cached.get("folder", "")
+    try:
+        await cb.message.edit_text(
+            text,
+            reply_markup=_lang_toggle_kb("en", folder),
+            disable_web_page_preview=False,
+        )
+    except Exception:
+        pass
+
+
+@router.callback_query(DeleteCallback.filter(F.action == "confirm"))
+async def h_del_confirm(cb: CallbackQuery, callback_data: DeleteCallback):
+    """Delete article from GitHub."""
+    await cb.answer("Удаляю...")
+    folder = callback_data.folder
+    cid = cb.message.chat.id
+    try:
+        ok = await _api.delete_article(folder)
+        if ok:
+            _final_cache.pop(cid, None)
+            try:
+                await cb.message.edit_text(f"✅ Статья <b>{folder}</b> удалена из репозитория.")
+            except Exception:
+                pass
+        else:
+            await cb.message.edit_text(f"❌ Не удалось удалить {folder}.")
+    except Exception as e:
+        logger.exception("Delete failed")
+        await cb.message.edit_text(f"❌ Ошибка: {e}")

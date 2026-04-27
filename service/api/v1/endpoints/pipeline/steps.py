@@ -70,6 +70,16 @@ _github_publisher = GitHubPublisherService()
 _telegram_delivery = TelegramDeliveryService()
 
 
+@router.post("/delete-article", summary="Delete article folder from GitHub")
+async def delete_article(payload: dict) -> dict:
+    """Delete article folder (cover + html) from GitHub repo."""
+    folder = payload.get("folder", "")
+    if not folder:
+        return {"ok": False, "error": "no folder"}
+    ok = await _github_publisher.delete_folder(folder)
+    return {"ok": ok}
+
+
 # ------------------------------------------------------------------
 # Step 1: Parse arXiv URL
 # ------------------------------------------------------------------

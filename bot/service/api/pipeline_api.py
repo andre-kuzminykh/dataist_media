@@ -97,6 +97,15 @@ class PipelineAPI:
             resp.raise_for_status()
             return resp.json()
 
+    async def delete_article(self, folder: str) -> bool:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self.base_url}/api/v1/pipeline/delete-article",
+                json={"folder": folder},
+            )
+            resp.raise_for_status()
+            return resp.json().get("ok", False)
+
     async def download_cover_image(self, cover_url: str) -> bytes | None:
         """Download cover image bytes from the service's internal static URL."""
         import re

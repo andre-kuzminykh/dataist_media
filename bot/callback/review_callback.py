@@ -16,3 +16,8 @@ class CoverCallback(CallbackData, prefix="cvr"):
 
 class LangCallback(CallbackData, prefix="lng"):
     show: str  # "ru" or "en" — which version to show next
+
+
+class DeleteCallback(CallbackData, prefix="del"):
+    action: str  # "ask", "confirm", "cancel"
+    folder: str = ""  # date folder to delete
