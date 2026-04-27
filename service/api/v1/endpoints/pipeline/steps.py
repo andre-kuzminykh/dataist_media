@@ -628,5 +628,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
         "status": status,
         "pages": pages,
         "messages": messages,
+        "en_title": locals().get("en_title", request.title),
+        "en_subtitle": locals().get("en_subtitle", request.subtitle),
         "diagnostics": {"warnings": warnings, "steps": steps},
     }

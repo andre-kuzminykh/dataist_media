@@ -81,6 +81,28 @@ class GitHubPublisherService:
                 logger.error("GitHub put failed: %s", resp.text[:500])
             resp.raise_for_status()
 
+    async def _folder_exists(self, folder: str) -> bool:
+        """Check if a folder exists in the repo."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{_API}/repos/{self._repo}/contents/{folder}",
+                    headers=self._headers(),
+                )
+                return resp.status_code == 200
+        except Exception:
+            return False
+
+    async def _find_available_folder(self, base: str) -> str:
+        """Find next available folder name: base, base_1, base_2, ..."""
+        if not await self._folder_exists(base):
+            return base
+        for i in range(1, 100):
+            candidate = f"{base}_{i}"
+            if not await self._folder_exists(candidate):
+                return candidate
+        return base  # fallback
+
     async def publish(
         self,
         html_content: str,
@@ -101,6 +123,9 @@ class GitHubPublisherService:
 
         if not folder_name:
             folder_name = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Find next available folder if today's already taken
+        folder_name = await self._find_available_folder(folder_name)
         logger.info("GitHub publish: folder=%s", folder_name)
 
         result = {"html_url": "", "cover_url": "", "folder": folder_name}

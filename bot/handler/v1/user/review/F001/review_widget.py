@@ -521,13 +521,14 @@ async def _build(msg, state, lang):
         await _del(bmsg)
 
         title = data.get("chosen_title", "")
+        en_title = result.get("en_title", title)
         ru_text = _fmt_final(title, teaser_ru, ru_url)
-        en_text = _fmt_final(title, teaser_en, en_url)
+        en_text = _fmt_final(en_title, teaser_en, en_url)
 
-        # Extract folder from GitHub URL (e.g. https://dataist.ai/2026-04-27/)
+        # Extract folder from GitHub URL (e.g. https://dataist.ai/2026-04-27_2/)
         folder = ""
         for url in [ru_url, en_url]:
-            m = re.search(r"/(\d{4}-\d{2}-\d{2})/?$", url or "")
+            m = re.search(r"/(\d{4}-\d{2}-\d{2}(?:_\d+)?)/?$", url or "")
             if m:
                 folder = m.group(1)
                 break
