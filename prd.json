@@ -191,6 +191,38 @@
         {
           "rule_id": "BR016",
           "description": "При генерации обложки система должна использовать референсное изображение как стилистический ориентир."
+        },
+        {
+          "rule_id": "BR017",
+          "description": "Финальная статья должна публиковаться в GitHub-репозиторий в папку с текущей датой (YYYY-MM-DD)."
+        },
+        {
+          "rule_id": "BR018",
+          "description": "При повторной публикации в один день папка должна получать суффикс _1, _2, ... до первого свободного имени."
+        },
+        {
+          "rule_id": "BR019",
+          "description": "Все картинки из arXiv должны скачиваться и храниться в той же GitHub-папке, что и index.html."
+        },
+        {
+          "rule_id": "BR020",
+          "description": "Относительные URL картинок arXiv должны корректно резолвиться с учётом paper ID (urljoin с trailing slash)."
+        },
+        {
+          "rule_id": "BR021",
+          "description": "Пользователь должен иметь возможность удалить опубликованную статью из GitHub-репозитория через бота."
+        },
+        {
+          "rule_id": "BR022",
+          "description": "Английская версия должна быть полностью на английском: заголовок, подзаголовок, текст и тизер."
+        },
+        {
+          "rule_id": "BR023",
+          "description": "OG description должна обрезаться по границам предложений, не посередине слова."
+        },
+        {
+          "rule_id": "BR024",
+          "description": "Пользователь должен иметь кнопку 🔄 для перегенерации списка заголовков и описания обложки."
         }
       ],
       "acceptance_criteria": [
@@ -295,6 +327,72 @@
             "then": "Пайплайн запускается автоматически без /review",
             "and_postconditions": []
           }
+        },
+        {
+          "scenario_id": "SC015",
+          "user_story": "As a system owner, I want articles auto-published to GitHub repo in date folders.",
+          "bdd": {
+            "given": "Сервис настроен с GITHUB_TOKEN и GITHUB_REPO",
+            "and_preconditions": [],
+            "when": "Пользователь утверждает обложку и пайплайн доходит до publish",
+            "then": "В GitHub-репо создаётся папка YYYY-MM-DD с index.html и cover.png",
+            "and_postconditions": ["Возвращается публичный URL формата https://dataist.ai/YYYY-MM-DD/"]
+          }
+        },
+        {
+          "scenario_id": "SC016",
+          "user_story": "As a content manager, I want repeated publishes today to use _1/_2 suffixes.",
+          "bdd": {
+            "given": "Папка 2026-04-27 уже существует в репозитории",
+            "and_preconditions": [],
+            "when": "Запускается новая публикация в тот же день",
+            "then": "Создаётся папка 2026-04-27_1; при повторе — 2026-04-27_2; и т.д.",
+            "and_postconditions": []
+          }
+        },
+        {
+          "scenario_id": "SC017",
+          "user_story": "As a reader, I want figures from arXiv to display correctly on the published page.",
+          "bdd": {
+            "given": "В статье есть иллюстрации с относительными URL (например, imgs/x.png)",
+            "and_preconditions": [],
+            "when": "Парсер резолвит URL и публикуется HTML",
+            "then": "URL резолвятся с paper ID (urljoin с trailing /), картинки скачиваются и хранятся в той же папке",
+            "and_postconditions": ["В HTML использованы локальные ссылки fig_N.png", "Нет mixed content"]
+          }
+        },
+        {
+          "scenario_id": "SC018",
+          "user_story": "As a content manager, I want to delete a published article from GitHub via bot.",
+          "bdd": {
+            "given": "Статья опубликована в папке YYYY-MM-DD",
+            "and_preconditions": [],
+            "when": "Пользователь нажимает 🗑 Удалить → ✅ Да, удалить",
+            "then": "Все файлы папки удаляются из GitHub-репозитория",
+            "and_postconditions": ["Финальное сообщение заменяется на подтверждение удаления"]
+          }
+        },
+        {
+          "scenario_id": "SC019",
+          "user_story": "As a reader of the EN version, I want all text in English (title, subtitle, body, teaser).",
+          "bdd": {
+            "given": "Русская статья сгенерирована и переведена",
+            "and_preconditions": [],
+            "when": "Бот публикует EN версию и отправляет EN сообщение",
+            "then": "Заголовок переведён, подзаголовок переведён, body переведён, тизер на английском",
+            "and_postconditions": []
+          }
+        },
+        {
+          "scenario_id": "SC020",
+          "user_story": "As a content manager, I want regenerate buttons for titles list and cover description.",
+          "bdd": {
+            "given": "Пользователь видит список заголовков или описание обложки",
+            "and_preconditions": [],
+            "when": "Пользователь нажимает кнопку 🔄",
+            "then": "Старое сообщение заменяется на новое с перегенерированным контентом",
+            "and_postconditions": []
+          }
         }
       ],
       "test_cases": [
@@ -378,6 +476,64 @@
           "assertion": "Парсер корректно извлекает заголовки из формата '1. Title\\n2. Title'",
           "examples": [
             {"input": {"llm_response": "1. Первый заголовок\n2. Второй заголовок\n3. Третий"}, "expected": {"parsed_count": 3}}
+          ]
+        },
+        {
+          "test_id": "BR020",
+          "scenario_id": "SC017",
+          "setup": "ArxivParserService с source_base без trailing /",
+          "action": "_resolve_image_url('imgs/x.png', '/html/2602.11103v1')",
+          "assertion": "Возвращает 'https://arxiv.org/html/2602.11103v1/imgs/x.png' (с paper ID)",
+          "examples": [
+            {"input": {"src": "imgs/x.png", "source_base": "/html/2602.11103v1"}, "expected": {"url": "https://arxiv.org/html/2602.11103v1/imgs/x.png"}},
+            {"input": {"src": "x1.png", "source_base": "/html/2602.11103v1"}, "expected": {"url": "https://arxiv.org/html/2602.11103v1/x1.png"}},
+            {"input": {"src": "https://example.com/img.png", "source_base": "/html/X"}, "expected": {"url": "https://example.com/img.png"}}
+          ]
+        },
+        {
+          "test_id": "BR017_1",
+          "scenario_id": "SC015",
+          "setup": "GitHubPublisherService с моком httpx",
+          "action": "publish(html_content, cover_image, folder_name='2026-04-27')",
+          "assertion": "Возвращает dict с html_url=https://dataist.ai/2026-04-27/ и cover_url",
+          "examples": [
+            {"input": {"folder_name": "2026-04-27"}, "expected": {"html_url_contains": "/2026-04-27/", "cover_url_contains": "cover.png"}}
+          ]
+        },
+        {
+          "test_id": "BR017_2",
+          "scenario_id": "SC015",
+          "setup": "Сервис без GITHUB_TOKEN",
+          "action": "publish() при пустом токене",
+          "assertion": "Возвращает empty dict без падения, не делает HTTP-запросов",
+          "examples": []
+        },
+        {
+          "test_id": "BR018",
+          "scenario_id": "SC016",
+          "setup": "Папки 2026-04-27 и 2026-04-27_1 уже существуют (mock)",
+          "action": "_find_available_folder('2026-04-27')",
+          "assertion": "Возвращает '2026-04-27_2' (первое свободное имя)",
+          "examples": [
+            {"input": {"existing": ["2026-04-27", "2026-04-27_1"]}, "expected": {"folder": "2026-04-27_2"}}
+          ]
+        },
+        {
+          "test_id": "BR021",
+          "scenario_id": "SC018",
+          "setup": "Папка 2026-04-27 содержит cover.png и index.html",
+          "action": "delete_folder('2026-04-27')",
+          "assertion": "DELETE-запросы для всех файлов; возвращает True",
+          "examples": []
+        },
+        {
+          "test_id": "BR023",
+          "scenario_id": "SC013",
+          "setup": "Длинный текст без обрезки",
+          "action": "_truncate_by_sentence(text, 220)",
+          "assertion": "Обрезает по '. ', '! ', '? ' в пределах 220 символов",
+          "examples": [
+            {"input": {"text": "First. Second sentence. Third one continues here for a long time...", "max_len": 30}, "expected": {"ends_with": "."}}
           ]
         }
       ]
