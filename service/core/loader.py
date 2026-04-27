@@ -1,12 +1,8 @@
 """
 FastAPI application factory and middleware configuration.
-
-Creates the ASGI app, attaches CORS middleware, mounts the
-static-files directory, and includes API routers.
-
-Feature IDs: F-CORE-LOADER
 """
 
+import logging
 import os
 
 from fastapi import FastAPI
@@ -14,6 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from service.core.config import config
+
+# Configure root logger immediately on import (works with both uvicorn reload modes)
+logging.basicConfig(
+    level=config.LOG_LEVEL.upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    force=True,
+)
 
 app = FastAPI(
     title="Dataist arXiv Pipeline API",

@@ -28,7 +28,7 @@ def main() -> None:
         host=config.HOST,
         port=config.PORT,
         log_level=config.LOG_LEVEL.lower(),
-        reload=True,
+        reload=False,
     )
 
 
