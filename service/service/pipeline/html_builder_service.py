@@ -203,6 +203,11 @@ class HtmlBuilderService:
             return stripped
 
         figures = figures or []
+        logger.info(
+            "Build article HTML: figures_count=%d, body_has_figure_marker=%s",
+            len(figures),
+            "[FIGURE" in stripped.upper(),
+        )
 
         def _process_block(text: str) -> str:
             """Convert a text block into HTML, handling figure markers and markdown bold."""
@@ -215,8 +220,8 @@ class HtmlBuilderService:
                 if not line:
                     continue
 
-                # [FIGURE:N] marker
-                fig_match = re.match(r"\[FIGURE:(\d+)\]", line)
+                # [FIGURE:N] marker — case insensitive, with optional whitespace
+                fig_match = re.match(r"\[\s*figure\s*:?\s*(\d+)\s*\]", line, re.IGNORECASE)
                 if fig_match:
                     # Close previous unclosed figure
                     if in_figure:
@@ -237,8 +242,8 @@ class HtmlBuilderService:
                             in_figure = True
                     continue
 
-                # [CAPTION:text] marker
-                cap_match = re.match(r"\[CAPTION:(.+)\]", line)
+                # [CAPTION:text] marker — case insensitive
+                cap_match = re.match(r"\[\s*caption\s*:?\s*(.+)\]", line, re.IGNORECASE)
                 if cap_match:
                     caption = cap_match.group(1).strip()
                     lines_out.append(

@@ -134,16 +134,35 @@ def _fmt_titles(titles, lang):
 
 
 def _fmt_final(title, teaser_raw, link_url):
-    """Format final message: title + clean teaser + hyperlink."""
+    """Format final message: title + clean teaser (paragraphs) + hyperlink."""
     parts = [f"<b>{title}</b>", ""]
     if teaser_raw:
         clean = re.sub(r"^<b>[^<]*</b>\s*\n*", "", teaser_raw).strip()
         clean = re.sub(r'<a href="[^"]*">[^<]*</a>.*$', "", clean, flags=re.DOTALL).strip()
         if clean:
-            parts.append(clean)
+            # Split into paragraphs:
+            # - First sentence (question/hook) → its own paragraph
+            # - Last sentence (call to action) → its own paragraph
+            # - Middle → joined as one paragraph
+            sentences = re.split(r'(?<=[.!?])\s+', clean)
+            sentences = [s.strip() for s in sentences if s.strip()]
+            if len(sentences) >= 3:
+                first = sentences[0]
+                last = sentences[-1]
+                middle = " ".join(sentences[1:-1])
+                paragraphs = [first, middle, last]
+            elif len(sentences) == 2:
+                paragraphs = [sentences[0], sentences[1]]
+            else:
+                paragraphs = [clean]
+            parts.append("\n\n".join(paragraphs))
             parts.append("")
     if link_url:
-        parts.append(f"📜 Полный обзор:\n{link_url}")
+        # Use HTML hyperlink if URL is valid HTTPS (Telegram renders it)
+        if link_url.startswith("https://"):
+            parts.append(f'📜 <a href="{link_url}">Полный обзор</a>')
+        else:
+            parts.append(f"📜 Полный обзор:\n{link_url}")
     return "\n".join(parts)
 
 

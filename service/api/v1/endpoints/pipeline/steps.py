@@ -472,8 +472,9 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
 
                 steps.append({"name": "publish_github", "status": "ok"})
             except Exception as gh_exc:
-                logger.warning("GitHub publishing failed: %s", gh_exc)
+                logger.exception("GitHub publishing failed")
                 steps.append({"name": "publish_github", "status": "failed", "error": str(gh_exc)})
+                warnings.append(f"GitHub publishing failed: {gh_exc}")
 
         except Exception as exc:
             steps.append(
