@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # --- GitHub publishing ---------------------------------------------------
     GITHUB_TOKEN: str = ""
     GITHUB_REPO: str = "andre-kuzminykh/dataist"
+    GITHUB_PAGES_URL: str = "https://dataist.ai"
 
     # --- Server --------------------------------------------------------------
     HOST: str = "0.0.0.0"

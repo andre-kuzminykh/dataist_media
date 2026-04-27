@@ -24,6 +24,7 @@ class GitHubPublisherService:
     def __init__(self) -> None:
         self._token = config.GITHUB_TOKEN
         self._repo = config.GITHUB_REPO  # "owner/repo"
+        self._pages_url = config.GITHUB_PAGES_URL.rstrip("/")
 
     def _headers(self) -> dict:
         return {
@@ -91,20 +92,22 @@ class GitHubPublisherService:
         try:
             # Upload cover.png
             if cover_image:
-                cover_url = await self._put_file(
+                await self._put_file(
                     f"{folder_name}/cover.png",
                     cover_image,
                     f"Add cover image for {folder_name}",
                 )
-                result["cover_url"] = cover_url
+                # Use GitHub Pages URL (dataist.ai/folder/cover.png)
+                result["cover_url"] = f"{self._pages_url}/{folder_name}/cover.png"
 
             # Upload index.html
-            html_url = await self._put_file(
+            await self._put_file(
                 f"{folder_name}/index.html",
                 html_content.encode("utf-8"),
                 f"Add article for {folder_name}",
             )
-            result["html_url"] = html_url
+            # Pages URL: dataist.ai/folder/ (browser auto-loads index.html)
+            result["html_url"] = f"{self._pages_url}/{folder_name}/"
 
         except Exception:
             logger.exception("GitHub publishing failed")
