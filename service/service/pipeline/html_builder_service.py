@@ -212,7 +212,6 @@ class HtmlBuilderService:
         def _process_block(text: str) -> str:
             """Convert a text block into HTML, handling figure markers and markdown bold."""
             lines_out = []
-            used_figures.clear()
             in_figure = False
 
             for line in text.split("\n"):
@@ -322,9 +321,11 @@ class HtmlBuilderService:
             section_count += 1
 
         # FALLBACK: if LLM didn't place any figures, auto-distribute them
-        # across sections (max 4 figures, evenly spaced)
+        logger.info("Figures placed by LLM: %d, total available: %d, sections: %d",
+                     len(used_figures), len([f for f in figures if f.get("url")]), section_count)
         if not used_figures and figures and section_count > 0:
             available = [(i, f) for i, f in enumerate(figures) if f.get("url")]
+            logger.info("Fallback: distributing %d figures across %d sections", len(available), section_count)
             max_figs = min(len(available), 4, max(1, section_count))
             if max_figs > 0 and available:
                 # Pick figures evenly: first, middle, etc.
@@ -339,7 +340,7 @@ class HtmlBuilderService:
                     # Insert figure after this section if it's a step boundary
                     if (s_idx + 1) % section_step == 0 and fig_idx < len(picked):
                         idx, fig = picked[fig_idx]
-                        caption = fig.get("caption", "") or f"Иллюстрация {idx + 1}"
+                        caption = f"Иллюстрация {fig_idx + 1}"
                         new_sections.append(
                             f'<figure class="my-10 md:my-14 fade-in max-w-4xl mx-auto w-full">'
                             f'<div class="arxiv-chart flex flex-col items-center">'

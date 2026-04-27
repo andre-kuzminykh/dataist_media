@@ -100,13 +100,17 @@ def _titles_kb(titles):
     rows = []
     if r1: rows.append(r1)
     if r2: rows.append(r2)
-    rows.append([InlineKeyboardButton(text="✏️ Ввести своё", callback_data=TitleCallback(action="custom", index=0).pack())])
+    rows.append([
+        InlineKeyboardButton(text="✏️ Ввести своё", callback_data=TitleCallback(action="custom", index=0).pack()),
+        InlineKeyboardButton(text="🔄 Новые", callback_data=TitleCallback(action="regen", index=0).pack()),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _cover_kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✏️ Ввести своё", callback_data=CoverCallback(action="custom").pack()),
+        InlineKeyboardButton(text="🔄 Новое", callback_data=CoverCallback(action="regen").pack()),
         InlineKeyboardButton(text=vocab.BTN_GENERATE_COVER, callback_data=CoverCallback(action="generate").pack()),
     ]])
 
@@ -114,6 +118,7 @@ def _cover_kb():
 def _image_review_kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Утвердить", callback_data=CoverCallback(action="approve").pack()),
+        InlineKeyboardButton(text="🔄 Новое описание", callback_data=CoverCallback(action="regen").pack()),
     ]])
 
 
@@ -245,6 +250,22 @@ async def h_tpick(cb: CallbackQuery, callback_data: TitleCallback, state: FSMCon
     await _show_cover(cb.message, state, lang)
 
 
+# ── Title: 🔄 regenerate new titles ──────────────────────────────────
+
+@router.callback_query(TitleCallback.filter(F.action == "regen"))
+async def h_tregen(cb: CallbackQuery, state: FSMContext):
+    lang = _lang(cb)
+    await cb.answer()
+    data = await state.get_data()
+    try:
+        titles = await _api.generate_titles(data.get("short_intro", ""), data.get("abstract", "")) or ["Обзор статьи"]
+        await state.update_data(titles=titles)
+        await _clean(cb.message.chat.id, state, cb.message.bot)
+        await _send(cb.message, _fmt_titles(titles, lang), state, reply_markup=_titles_kb(titles))
+    except Exception:
+        logger.exception("Title regen failed")
+
+
 # ── Title: text = regenerate ──────────────────────────────────────────
 
 @router.message(ReviewStates.choosing_title, F.text)
@@ -347,6 +368,27 @@ async def h_ccustom_in(m: Message, state: FSMContext):
     await _clean(m.chat.id, state, m.bot)
     text = (vocab.MSG_COVER_DESCRIPTION if lang == "ru" else vocab.MSG_COVER_DESCRIPTION_EN).format(description=new)
     await _send(m, text, state, reply_markup=_cover_kb())
+
+
+# ── Cover: 🔄 regenerate description ──────────────────────────────────
+
+@router.callback_query(CoverCallback.filter(F.action == "regen"))
+async def h_cregen(cb: CallbackQuery, state: FSMContext):
+    lang = _lang(cb)
+    await cb.answer()
+    data = await state.get_data()
+    await state.set_state(ReviewStates.viewing_cover_description)
+    try:
+        chosen = data.get("chosen_title", "")
+        abstract = data.get("abstract", "") or data.get("short_intro", "")
+        context = f"Заголовок: {chosen}\n\nО чём статья: {abstract[:800]}"
+        desc = await _api.generate_cover_description(context)
+        await state.update_data(cover_description=desc)
+        await _clean(cb.message.chat.id, state, cb.message.bot)
+        text = (vocab.MSG_COVER_DESCRIPTION if lang == "ru" else vocab.MSG_COVER_DESCRIPTION_EN).format(description=desc)
+        await _send(cb.message, text, state, reply_markup=_cover_kb())
+    except Exception:
+        logger.exception("Cover regen failed")
 
 
 # ── Cover: generate image → show for review ──────────────────────────
