@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # --- Image generation ----------------------------------------------------
     REFERENCE_IMAGE_URL: str = ""
 
+    # --- GitHub publishing ---------------------------------------------------
+    GITHUB_TOKEN: str = ""
+    GITHUB_REPO: str = "andre-kuzminykh/dataist"
+
     # --- Server --------------------------------------------------------------
     HOST: str = "0.0.0.0"
     PORT: int = 8000

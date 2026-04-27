@@ -63,6 +63,9 @@ _content_generator = ContentGeneratorService()
 _visual_generator = VisualGeneratorService()
 _html_builder = HtmlBuilderService()
 _publisher = PublisherService()
+
+from service.service.pipeline.github_publisher_service import GitHubPublisherService
+_github_publisher = GitHubPublisherService()
 _telegram_delivery = TelegramDeliveryService()
 
 
@@ -420,6 +423,58 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
             ru_page_url = ru_published["public_url"]
             pages["ru_html_url"] = ru_page_url
             steps.append({"name": "publish_html_ru", "status": "ok"})
+
+            # --- Publish to GitHub (HTTPS URLs) ---
+            try:
+                cover_bytes = None
+                if request.cover_image_url:
+                    import re as _re3
+                    internal_url = _re3.sub(
+                        r"https?://[^/]+",
+                        f"http://localhost:{config.PORT}",
+                        request.cover_image_url,
+                        count=1,
+                    )
+                    async with httpx.AsyncClient(timeout=15.0) as _hc:
+                        _cr = await _hc.get(internal_url)
+                        if _cr.status_code == 200:
+                            cover_bytes = _cr.content
+
+                # Rebuild HTML with GitHub cover URL for OG
+                gh_result = await _github_publisher.publish(
+                    html_content=ru_artifact["html"],
+                    cover_image=cover_bytes,
+                )
+                if gh_result.get("html_url"):
+                    pages["ru_html_url"] = gh_result["html_url"]
+                    ru_page_url = gh_result["html_url"]
+
+                    # Rebuild HTML with HTTPS cover URL in OG tags
+                    if gh_result.get("cover_url"):
+                        ru_artifact_gh = _html_builder.build_html_page(
+                            title=request.title,
+                            subtitle=request.subtitle,
+                            date=date_str,
+                            cover_image_url=gh_result["cover_url"],
+                            article_html=article_html,
+                            links=request.links,
+                            figures=request.figures,
+                            locale="ru",
+                            slug=slug,
+                            og_description=og_desc,
+                            public_base_url=public_base,
+                        )
+                        await _github_publisher.publish(
+                            html_content=ru_artifact_gh["html"],
+                            cover_image=None,  # already uploaded
+                        )
+                        pages["cover_url"] = gh_result["cover_url"]
+
+                steps.append({"name": "publish_github", "status": "ok"})
+            except Exception as gh_exc:
+                logger.warning("GitHub publishing failed: %s", gh_exc)
+                steps.append({"name": "publish_github", "status": "failed", "error": str(gh_exc)})
+
         except Exception as exc:
             steps.append(
                 {"name": "build_publish_html_ru", "status": "failed", "error": str(exc)}
