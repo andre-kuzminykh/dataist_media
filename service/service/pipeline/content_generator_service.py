@@ -162,49 +162,14 @@ class ContentGeneratorService:
     async def postprocess_editorial(
         self, article_body: str, prompt_profile_id: str
     ) -> str:
-        """Two-phase post-processing: deterministic regex + LLM cleanup."""
-        import re as _re
-
-        # Phase 1: deterministic regex replacements (guaranteed, no LLM needed)
-        replacements = [
-            (r'\bworld models?\b', lambda m: 'модели мира' if 'models' in m.group().lower() else 'модель мира'),
-            (r'\bWorld Models?\b', lambda m: 'Модели мира' if 'Models' in m.group() else 'Модель мира'),
-            (r'\bcoding agents?\b', lambda m: 'агенты для программирования' if 'agents' in m.group().lower() else 'агент для программирования'),
-            (r'\bCoding [Aa]gents?\b', lambda m: 'Агенты для программирования' if 'gents' in m.group() else 'Агент для программирования'),
-            (r'\bworld model(?:ing|s)\b', 'модели мира'),
-            (r'\bbenchmarks?\b', lambda m: 'бенчмарки' if m.group().endswith('s') else 'бенчмарк'),
-            (r'\bfine-tun(?:ing|ed|e)\b', 'файн-тюнинг'),
-            (r'\bchain-of-thought\b', 'цепочка рассуждений'),
-            (r'\breinforcement learning\b', 'обучение с подкреплением'),
-            (r'\bReinforcement [Ll]earning\b', 'Обучение с подкреплением'),
-            (r'\bmulti-agent\b', 'мультиагентный'),
-            (r'\bembeddings?\b', lambda m: 'эмбеддинги' if m.group().endswith('s') else 'эмбеддинг'),
-            (r'\binference\b', 'инференс'),
-            (r'\breasoning\b', 'рассуждение'),
-            (r'\bstate-of-the-art\b', 'лучший на данный момент'),
-            (r'\blatent[- ]?state\b', 'скрытое состояние'),
-            (r'\blatent[- ]?dynamics\b', 'латентная динамика'),
-            (r'\bplanning\b', 'планирование'),
-            (r'\bpractically\b', 'на практике'),
-            (r'\bDreamer-подобные\b', 'Dreamer-подобные'),
-        ]
-
-        text = article_body
-        for pattern, repl in replacements:
-            if callable(repl):
-                text = _re.sub(pattern, repl, text, flags=_re.IGNORECASE)
-            else:
-                text = _re.sub(pattern, repl, text)
-
-        # Phase 2: LLM cleanup for remaining English phrases
+        """LLM-based editorial cleanup — replaces English terms per prompt instructions."""
         profile = self._config_loader.load_prompt_profile(prompt_profile_id)
         prompts = profile.get("prompts", {})
         prompt_template = prompts.get("editorial_postprocess", "")
-        if prompt_template:
-            prompt = prompt_template.format(article_body=text)
-            text = await self._call_llm(prompt, max_tokens=16384)
-
-        return text
+        if not prompt_template:
+            return article_body
+        prompt = prompt_template.format(article_body=article_body)
+        return await self._call_llm(prompt, max_tokens=16384)
 
     async def generate_subtitle(
         self,
