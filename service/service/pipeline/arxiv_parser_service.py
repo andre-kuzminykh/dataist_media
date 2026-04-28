@@ -79,12 +79,26 @@ class ArxivParserService:
 
     @staticmethod
     def _resolve_image_url(src: str, source_base: str) -> str:
-        """Resolve a potentially relative image *src* to an absolute URL."""
+        """Resolve a potentially relative image *src* to an absolute URL.
+
+        Handles two arXiv HTML formats:
+        1. src is just relative path:  "imgs/x.png" + base "/html/2602.11103v1"
+           → "https://arxiv.org/html/2602.11103v1/imgs/x.png"
+        2. src already starts with paper_id: "2604.22748v1/x1.png"
+           → "https://arxiv.org/html/2604.22748v1/x1.png" (no doubling)
+        """
         if src.startswith(("http://", "https://")):
             return src
-        # Ensure source_base ends with "/" so urljoin doesn't drop the last segment
-        # e.g. "/html/2602.11103v1" + "imgs/x.png" → "/html/imgs/x.png" (BUG)
-        # vs    "/html/2602.11103v1/" + "imgs/x.png" → "/html/2602.11103v1/imgs/x.png" (OK)
+
+        # Extract paper_id from source_base (e.g. "/html/2604.22748v1" → "2604.22748v1")
+        parts = source_base.strip("/").split("/")
+        paper_id = parts[-1] if parts else ""
+
+        # If src already starts with paper_id, don't double it
+        if paper_id and (src.startswith(paper_id + "/") or src == paper_id):
+            return f"https://arxiv.org/html/{src}"
+
+        # Normal case: urljoin with trailing slash to preserve paper_id
         base_path = source_base if source_base.endswith("/") else source_base + "/"
         base = f"https://arxiv.org{base_path}"
         return urljoin(base, src)

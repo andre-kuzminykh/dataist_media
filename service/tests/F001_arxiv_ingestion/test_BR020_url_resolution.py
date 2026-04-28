@@ -49,6 +49,17 @@ class TestResolveImageUrlPaperIdPreserved:
                 "/html/2301.12345v1",
                 "http://other.com/x.png",
             ),
+            # src already includes paper_id (don't double it)
+            (
+                "2604.22748v1/x1.png",
+                "/html/2604.22748v1",
+                "https://arxiv.org/html/2604.22748v1/x1.png",
+            ),
+            (
+                "2301.12345v2/imgs/example.png",
+                "/html/2301.12345v2",
+                "https://arxiv.org/html/2301.12345v2/imgs/example.png",
+            ),
         ],
         ids=[
             "subdir-imgs",
@@ -56,6 +67,8 @@ class TestResolveImageUrlPaperIdPreserved:
             "diff-paper-subdir",
             "https-passthrough",
             "http-passthrough",
+            "src-includes-paper-id-no-double",
+            "src-includes-paper-id-with-subdir",
         ],
     )
     def test_url_resolution(self, src, source_base, expected):
