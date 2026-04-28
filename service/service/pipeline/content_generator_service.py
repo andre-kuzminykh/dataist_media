@@ -108,6 +108,12 @@ class ContentGeneratorService:
         )
         article_body = await self._call_llm(editorial_prompt, max_tokens=16384)
 
+        # --- Editorial post-processing (reduce English terms) ---
+        try:
+            article_body = await self.postprocess_editorial(article_body, prompt_profile_id)
+        except Exception:
+            logger.warning("Editorial postprocessing failed, using raw text")
+
         # --- Short intro (first meaningful paragraph) -----------------------
         short_intro = ""
         for para in article_body.split("\n\n"):
@@ -152,6 +158,18 @@ class ContentGeneratorService:
         title_prompt = prompts.get("title", "")
         title_prompt = title_prompt.format(short_intro=short_intro)
         return (await self._call_llm(title_prompt, max_tokens=256)).strip()
+
+    async def postprocess_editorial(
+        self, article_body: str, prompt_profile_id: str
+    ) -> str:
+        """Run editorial post-processing to replace English terms with Russian equivalents."""
+        profile = self._config_loader.load_prompt_profile(prompt_profile_id)
+        prompts = profile.get("prompts", {})
+        prompt = prompts.get("editorial_postprocess", "")
+        if not prompt:
+            return article_body
+        prompt = prompt.format(article_body=article_body)
+        return await self._call_llm(prompt, max_tokens=16384)
 
     async def generate_subtitle(
         self,
