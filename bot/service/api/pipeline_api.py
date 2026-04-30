@@ -61,7 +61,7 @@ class PipelineAPI:
             return resp.json()["titles"]
 
     async def generate_editorial(self, parsed_article: dict, chosen_title: str) -> dict:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(f"{self.base_url}/api/v1/pipeline/generate-editorial", json={"parsed_article": parsed_article, "chosen_title": chosen_title})
             resp.raise_for_status()
             return resp.json()
@@ -88,7 +88,7 @@ class PipelineAPI:
             return resp.json()
 
     async def build_and_publish(self, title: str, subtitle: str, article_body: str, short_intro: str, cover_image_url: str, links: dict, figures: list, source_url: str) -> dict:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=600.0) as client:
             resp = await client.post(f"{self.base_url}/api/v1/pipeline/build-and-publish", json={
                 "title": title, "subtitle": subtitle, "article_body": article_body,
                 "short_intro": short_intro, "cover_image_url": cover_image_url,
