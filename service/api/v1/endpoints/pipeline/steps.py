@@ -394,18 +394,27 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
         idx = cut.rfind(" ")
         return (cut[:idx] if idx > 0 else cut).strip() + "…"
 
-    # Extract Russian description for OG from article body (not English abstract)
-    og_desc = ""
-    for para in request.article_body.split("\n\n"):
-        p = para.strip()
-        if p and not p.startswith("#") and not p.startswith("["):
-            # Strip HTML tags (paragraph may have <strong>, <em>)
-            import re as _re
-            p = _re.sub(r"<[^>]+>", "", p)
-            og_desc = _truncate_by_sentence(p, 220)
-            break
+    # --- Generate teasers FIRST (used as og:description in HTML) ---
+    import re as _re_clean
+    teaser_ru = ""
+    teaser_en = ""
+    try:
+        teaser_ru = await _content_generator.generate_teaser(
+            request.title, request.short_intro, "ru", request.prompt_profile_id
+        )
+    except GenerationError:
+        warnings.append("RU teaser generation failed")
+    try:
+        teaser_en = await _content_generator.generate_teaser(
+            request.title, request.short_intro, "en", request.prompt_profile_id
+        )
+    except GenerationError:
+        warnings.append("EN teaser generation failed")
+
+    # Use teaser as og:description (clean, complete, no HTML tags)
+    og_desc = _re_clean.sub(r"<[^>]+>", "", teaser_ru).strip() if teaser_ru else ""
     if not og_desc:
-        og_desc = _truncate_by_sentence(request.short_intro, 220)
+        og_desc = _truncate_by_sentence(request.short_intro, 350)
 
     # --- RU HTML ---
     ru_page_url = ""
@@ -578,15 +587,10 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
             except Exception:
                 logger.warning("EN title translation failed, using RU")
 
-            # EN OG description from first paragraph of translated body
-            en_og_desc = _truncate_by_sentence(request.short_intro, 220)
-            import re as _re2
-            for para in en_body.split("\n\n"):
-                p = para.strip()
-                if p and not p.startswith("#") and not p.startswith("["):
-                    p = _re2.sub(r"<[^>]+>", "", p)
-                    en_og_desc = _truncate_by_sentence(p, 220)
-                    break
+            # EN OG description = EN teaser (full, clean)
+            en_og_desc = _re_clean.sub(r"<[^>]+>", "", teaser_en).strip() if teaser_en else ""
+            if not en_og_desc:
+                en_og_desc = _truncate_by_sentence(request.short_intro, 350)
 
             en_artifact = _html_builder.build_html_page(
                 title=en_title,
@@ -617,24 +621,7 @@ async def build_and_publish(request: BuildPublishRequestSchema) -> dict:
             )
             warnings.append(f"EN HTML build/publish failed: {exc}")
 
-    # --- Teasers ---
-    teaser_ru = ""
-    teaser_en = ""
-    try:
-        teaser_ru = await _content_generator.generate_teaser(
-            request.title, request.short_intro, "ru", request.prompt_profile_id
-        )
-    except GenerationError:
-        warnings.append("RU teaser generation failed")
-
-    try:
-        teaser_en = await _content_generator.generate_teaser(
-            request.title, request.short_intro, "en", request.prompt_profile_id
-        )
-    except GenerationError:
-        warnings.append("EN teaser generation failed")
-
-    # --- Telegram messages ---
+    # --- Telegram messages (teasers already generated above) ---
     # Use EN title for EN message if available
     _en_title = locals().get("en_title", request.title)
     try:
